@@ -1,0 +1,20 @@
+# Rojo
+*.rbxlx
+*.rbxl
+*.rbxm
+*.rbxmx
+
+# macOS
+.DS_Store
+
+# Documentation (auto-generated)
+*.md
+!README.md
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Node (if using wally or other tools)
+node_modules/

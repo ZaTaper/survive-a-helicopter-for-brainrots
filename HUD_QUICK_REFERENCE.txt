@@ -1,0 +1,238 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                 HUD SYSTEM QUICK REFERENCE CARD                                ║
+║           "Survive a Helicopter for Brainrots" - Roblox Game                   ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+FILE LOCATIONS
+├─ src/gui/MainHUD.lua                 Main HUD module (fuel, speed, wave, etc)
+├─ src/gui/Leaderboard.lua             Leaderboard module (Tab to toggle)
+├─ src/gui/DeathScreen.lua             Death screen module (dramatic UI)
+├─ src/client/HUDClient.client.lua     Main client script (orchestration)
+├─ HUD_INTEGRATION_GUIDE.md             How to integrate with server
+├─ HUD_SYSTEM_SUMMARY.txt               Complete feature overview
+└─ HUD_QUICK_REFERENCE.txt              This file
+
+REMOTE EVENTS TO FIRE FROM SERVER
+(All auto-created in ReplicatedStorage.HUDEvents)
+
+UpdateFuel(currentFuel, maxFuel)
+  └─ Fires every frame during flight
+
+UpdateSpeed(speed)
+  └─ Fires when engine count changes
+
+UpdateInventory(engines, canisters, currentFuel)
+  └─ Fires when player picks up items
+
+UpdateKillCount(killCount)
+  └─ Fires when brainrot is eliminated
+
+UpdateWave(waveNumber)
+  └─ Fires when wave counter increments
+
+UpdatePhase(phase, duration)
+  └─ Fires at phase transitions (LOBBY, BUILD, SURVIVE, ROUNDEND)
+
+UpdateLeaderboard(leaderboardDataTable)
+  └─ Fires once per second (broadcast to all players)
+
+PlayerDied(brainrotName, brainrotTier, tierColor)
+  └─ Fires when player dies
+
+PickupNotification(itemType, quantity)
+  └─ Fires when player picks up engine or canister
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SERVER CODE TEMPLATE
+
+-- Initialize in your server script:
+local HUDEvents = ReplicatedStorage:WaitForChild("HUDEvents")
+
+-- Update fuel (in flight loop):
+HUDEvents:WaitForChild("UpdateFuel"):FireClient(player, currentFuel, maxFuel)
+
+-- Send death:
+HUDEvents:WaitForChild("PlayerDied"):FireClient(player, "Brainrot Name", "TIER", Color3.fromRGB(r,g,b))
+
+-- Broadcast leaderboard (every 1 second):
+local data = {
+    ["Player1"] = {wavesSurvived = 5, kills = 12, speed = 50},
+    ["Player2"] = {wavesSurvived = 3, kills = 8, speed = 35},
+}
+for _, p in ipairs(Players:GetPlayers()) do
+    HUDEvents:WaitForChild("UpdateLeaderboard"):FireClient(p, data)
+end
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MAIN HUD LAYOUT (Top-left corner, 350x400px)
+
+┌─────────────────────────────────┐
+│  HELICOPTER STATS   [Title Bar]  │ ← Cyan accent color
+├─────────────────────────────────┤
+│  BUILD PHASE       │    0:45     │ ← Phase indicator + timer
+├─────────────────────────────────┤
+│  WAVE              │  5          │ ← Wave number
+├─────────────────────────────────┤
+│  SPEED             │  75         │ ← Current speed
+├─────────────────────────────────┤
+│  FUEL              │  95%        │ ← Fuel percentage
+│  ████████████░░░░░░░░░░░░░░     │ ← Fuel bar (animated)
+├─────────────────────────────────┤
+│  ⚙ Engines:  5     │  🛢 Canisters: 3 │
+├─────────────────────────────────┤
+│  BRAINROTS ELIMINATED            │ ← Red background
+│          42                       │ ← Large number
+└─────────────────────────────────┘
+
+LEADERBOARD (Center, 500x600px, toggle with Tab)
+
+┌──────────────────────────────────────┐
+│  LEADERBOARD              [Close ✕]  │ ← Cyan header
+├──────────────────────────────────────┤
+│ RANK │ PLAYER  │ WAVES │ KILLS │ SPD │ ← Column headers
+├──────────────────────────────────────┤
+│  1   │ PlayerA │   8   │  45   │ 85  │
+│  2   │ PlayerB │   6   │  32   │ 70  │ ← Current player highlighted
+│  3   │ PlayerC │   4   │  18   │ 55  │
+│  ... │   ...   │  ...  │  ...  │ ... │
+└──────────────────────────────────────┘
+
+DEATH SCREEN (Full screen overlay, center panel)
+
+┌─────────────────────────────────────┐
+│                                     │
+│         YOU DIED!                   │ ← Dramatic red text
+│                                     │
+│     Eliminated by: Mega Brainrot    │
+│                    MYTHIC  [Purple] │
+│                                     │
+│     ⚠ FUEL HAS BEEN RESET!          │ ← Orange warning
+│                                     │
+│     SESSION SUMMARY                 │
+│     Waves Survived:    5            │
+│     Brainrots Eliminated: 27        │
+│                                     │
+│     Respawning in... 5              │ ← Big countdown
+│                                     │
+│  [Press SPACE to Respawn Now]       │ ← Blue button
+│                                     │
+└─────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE COLORS
+
+LOBBY  → Blue      (RGB 100, 100, 200)
+BUILD  → Green     (RGB 100, 200, 100)
+SURVIVE → Red      (RGB 255, 100, 100)
+ROUNDEND → Purple  (RGB 200, 100, 255)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+KEYBOARD SHORTCUTS
+
+TAB .... Toggle leaderboard
+SPACE .. Respawn (when dead)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FUEL COLOR TRANSITIONS
+
+100% ▓▓▓▓▓▓▓▓▓▓ GREEN
+ 50% ▓▓▓▓▓░░░░░ YELLOW
+ 20% ▓▓░░░░░░░░ RED/ORANGE
+  0% ░░░░░░░░░░ EMPTY (RED)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ANIMATION TIMINGS
+
+Fuel bar update:        0.2 seconds (Quad easing)
+Phase color change:     0.3 seconds (Quad easing)
+Kill counter pop:       0.15 seconds (Back easing)
+Pickup notification:    0.2s in, 3s hold, 0.3s out
+Death screen entrance:  0.5 seconds + shake effect
+Death screen exit:      0.3 seconds
+Leaderboard open:       0.3 seconds (Back easing out)
+Leaderboard close:      0.2 seconds (Back easing in)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEPLOYMENT CHECKLIST
+
+✓ Copy src/gui/MainHUD.lua to project
+✓ Copy src/gui/Leaderboard.lua to project
+✓ Copy src/gui/DeathScreen.lua to project
+✓ Copy src/client/HUDClient.client.lua to project
+✓ Ensure GameConfig.lua exists in shared
+✓ Ensure HelicopterData.lua exists in shared
+✓ Test all RemoteEvents fire from server
+✓ Verify Tab key toggles leaderboard
+✓ Verify death screen shows on player death
+✓ Test fuel gauge animation
+✓ Verify leaderboard updates in real-time
+✓ Check all colors are correct
+✓ Verify no console errors
+✓ Test on different screen resolutions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TROUBLESHOOTING
+
+Problem: Fuel bar not animating
+→ Check if UpdateFuel event is firing from server
+
+Problem: Leaderboard won't open
+→ Check Tab key in UserInputService, verify Leaderboard:Init() was called
+
+Problem: Death screen doesn't appear
+→ Ensure PlayerDied event fires with correct parameters
+
+Problem: Phase timer stuck
+→ Verify UpdatePhase fires with duration parameter
+
+Problem: Kill counter not updating
+→ Check UpdateKillCount event from server
+
+Problem: Colors look different
+→ Verify RGB values match GameConfig.BrainrotTiers
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LEADERBOARD DATA FORMAT
+
+leaderboardData = {
+    ["PlayerName1"] = {
+        wavesSurvived = 5,
+        kills = 27,
+        speed = 85
+    },
+    ["PlayerName2"] = {
+        wavesSurvived = 3,
+        kills = 14,
+        speed = 65
+    },
+    -- ... more players
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BRAINROT TIER COLORS (from GameConfig)
+
+Common:      RGB(180, 180, 180) - Gray
+Uncommon:    RGB(50, 200, 50)   - Green
+Rare:        RGB(50, 100, 255)  - Blue
+Epic:        RGB(160, 50, 255)  - Purple
+Mythic:      RGB(255, 50, 50)   - Red
+Secret:      RGB(255, 215, 0)   - Gold
+Celestial:   RGB(0, 255, 255)   - Cyan
+OP:          RGB(255, 0, 128)   - Pink/Magenta
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For complete documentation, see HUD_INTEGRATION_GUIDE.md
+
+Last Updated: April 2026
+System Status: Production Ready
