@@ -191,6 +191,42 @@ local function CreateNotificationUI()
 	notificationFrame.TextLabel = textLabel
 	notificationFrame.ProgressLabel = progressLabel
 
+	-- Auto-dismiss after 3 seconds (respawn time)
+	task.delay(3, function()
+		if notificationFrame and notificationFrame.Parent then
+			local fadeTween = TweenService:Create(
+				notificationFrame,
+				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{BackgroundTransparency = 1}
+			)
+			-- Also fade the text
+			local textFade = TweenService:Create(
+				textLabel,
+				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{TextTransparency = 1}
+			)
+			local progressFade = TweenService:Create(
+				progressLabel,
+				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{TextTransparency = 1}
+			)
+			-- Fade the stroke too
+			local strokeObj = notificationFrame:FindFirstChildOfClass("UIStroke")
+			if strokeObj then
+				TweenService:Create(strokeObj, TweenInfo.new(0.5), {Transparency = 1}):Play()
+			end
+			fadeTween.Completed:Connect(function()
+				if screenGui and screenGui.Parent then
+					screenGui:Destroy()
+				end
+				notificationFrame = nil
+			end)
+			fadeTween:Play()
+			textFade:Play()
+			progressFade:Play()
+		end
+	end)
+
 	return notificationFrame
 end
 
