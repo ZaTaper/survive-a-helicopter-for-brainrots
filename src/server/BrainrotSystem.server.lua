@@ -27,12 +27,12 @@ local brainrotIdCounter = 0
 local MAP_CENTER = Vector3.new(0, 200, 0)
 local PATHWAY_LENGTH = 200             -- Pathway goes from Z=-100 to Z=+100
 
--- Open air brainrot zone: beyond the pathway end, floating in the sky
-local BRAINROT_ZONE_START_Z = 120      -- Start spawning past the pathway end
-local BRAINROT_ZONE_END_Z = 500        -- How far out brainrots go
-local BRAINROT_ZONE_WIDTH = 300        -- How wide the brainrot zone is (X spread)
-local BRAINROT_ZONE_HEIGHT_MIN = 180   -- Min Y for floating brainrots
-local BRAINROT_ZONE_HEIGHT_MAX = 240   -- Max Y for floating brainrots
+-- Open air brainrot zone: right past the pathway end, close enough to see
+local BRAINROT_ZONE_START_Z = 50       -- Start spawning near the middle/end of pathway
+local BRAINROT_ZONE_END_Z = 250        -- Don't go too far out
+local BRAINROT_ZONE_WIDTH = 150        -- Spread on X axis
+local BRAINROT_ZONE_HEIGHT_MIN = 195   -- Just below pathway level
+local BRAINROT_ZONE_HEIGHT_MAX = 220   -- Just above pathway level
 
 -- Settings
 local BOB_HEIGHT = 1.5                 -- Max distance up/down from center (studs)
@@ -47,15 +47,15 @@ local RESPAWN_DELAY_MAX = 60           -- Max seconds until respawn
 local function GetRandomBrainrotPosition(tierIndex)
 	-- Higher tiers spawn further out from the pathway
 	local tierFraction = (tierIndex - 1) / 7 -- 0 to 1
-	local minZ = BRAINROT_ZONE_START_Z + tierFraction * 100 -- Higher tiers start further
-	local maxZ = minZ + 80 -- Each tier has an 80-stud deep zone
+	local minZ = BRAINROT_ZONE_START_Z + tierFraction * 30 -- Spread tiers out gradually
+	local maxZ = minZ + 25 -- Each tier has a 25-stud deep zone
 
 	local z = minZ + math.random() * (maxZ - minZ)
 	local x = (math.random() - 0.5) * BRAINROT_ZONE_WIDTH
 	local y = BRAINROT_ZONE_HEIGHT_MIN + math.random() * (BRAINROT_ZONE_HEIGHT_MAX - BRAINROT_ZONE_HEIGHT_MIN)
 
 	-- Higher tiers float a bit higher
-	y = y + tierIndex * 3
+	y = y + tierIndex * 2
 
 	return Vector3.new(x, y, z)
 end
