@@ -1,6 +1,6 @@
 -- MapGenerator.server.lua
 -- Server-side map generation for "Survive a Helicopter for Brainrots"
--- Creates island terrain, player bases, shop, decorations, water, and lighting
+-- Creates a sky-based floating map with spawn hub, player bases, neon bridges, and brainrot islands
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -9,129 +9,47 @@ local Lighting = game:GetService("Lighting")
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 local MapAssets = require(ServerStorage:WaitForChild("Storage"):WaitForChild("MapAssets"))
 
--- Map configuration
-local MAP_SIZE = GameConfig.Map.SIZE
-local SAFE_ZONE_RADIUS = GameConfig.Map.SAFE_ZONE_RADIUS
-local MAP_CENTER = Vector3.new(0, 50, 0)
-local WATER_HEIGHT = GameConfig.Map.WATER_HEIGHT
+-- ============================================================
+-- MAP CONFIGURATION
+-- ============================================================
 
--- Build zone radiuses
-local BUILD_ZONE_INNER_RADIUS = SAFE_ZONE_RADIUS * 1.5
-local BUILD_ZONE_OUTER_RADIUS = SAFE_ZONE_RADIUS * 3.5
-
--- Number of player bases to create
+local MAP_CENTER = Vector3.new(0, 200, 0)
 local NUM_PLAYER_BASES = 8
+local PLAYER_BASE_RADIUS = 150
+local BRAINROT_ISLAND_RADIUS_MIN = 300
+local BRAINROT_ISLAND_RADIUS_MAX = 400
+local VOID_CENTER_Y = 50
 
 -- ============================================================
 -- HELPER FUNCTIONS (defined BEFORE GenerateMap)
 -- ============================================================
 
-local function AddTrees(parent, count)
-	print("[MapGenerator] Generating " .. count .. " trees...")
-	local treesFolder = Instance.new("Folder")
-	treesFolder.Name = "Trees"
-	treesFolder.Parent = parent
-
-	for i = 1, count do
-		local angle = math.random() * math.pi * 2
-		local distance = math.random(SAFE_ZONE_RADIUS * 2, MAP_SIZE * 0.85)
-		if distance > SAFE_ZONE_RADIUS * 1.3 then
-			local x = MAP_CENTER.X + math.cos(angle) * distance
-			local z = MAP_CENTER.Z + math.sin(angle) * distance
-			local tree = MapAssets.CreateTree(Vector3.new(x, MAP_CENTER.Y, z))
-			tree.Parent = treesFolder
-		end
-	end
-end
-
-local function AddRocks(parent, count)
-	print("[MapGenerator] Generating " .. count .. " rocks...")
-	local rocksFolder = Instance.new("Folder")
-	rocksFolder.Name = "Rocks"
-	rocksFolder.Parent = parent
-
-	for i = 1, count do
-		local angle = math.random() * math.pi * 2
-		local distance = math.random(SAFE_ZONE_RADIUS * 2, MAP_SIZE * 0.9)
-		if distance > SAFE_ZONE_RADIUS * 1.2 then
-			local x = MAP_CENTER.X + math.cos(angle) * distance
-			local z = MAP_CENTER.Z + math.sin(angle) * distance
-			local rock = MapAssets.CreateRock(Vector3.new(x, MAP_CENTER.Y, z))
-			rock.Parent = rocksFolder
-		end
-	end
-end
-
-local function AddRockClusters(parent, count)
-	print("[MapGenerator] Generating " .. count .. " rock clusters...")
-	local clustersFolder = Instance.new("Folder")
-	clustersFolder.Name = "RockClusters"
-	clustersFolder.Parent = parent
-
-	for i = 1, count do
-		local angle = math.random() * math.pi * 2
-		local distance = math.random(SAFE_ZONE_RADIUS * 2.5, MAP_SIZE * 0.85)
-		local centerX = MAP_CENTER.X + math.cos(angle) * distance
-		local centerZ = MAP_CENTER.Z + math.sin(angle) * distance
-
-		for j = 1, math.random(3, 5) do
-			local oAngle = math.random() * math.pi * 2
-			local oDist = math.random(5, 15)
-			local ox = centerX + math.cos(oAngle) * oDist
-			local oz = centerZ + math.sin(oAngle) * oDist
-			local rock = MapAssets.CreateRock(Vector3.new(ox, MAP_CENTER.Y, oz))
-			rock.Parent = clustersFolder
-		end
-	end
-end
-
-local function AddFlowers(parent, count)
-	print("[MapGenerator] Generating " .. count .. " flowers...")
-	local flowersFolder = Instance.new("Folder")
-	flowersFolder.Name = "Flowers"
-	flowersFolder.Parent = parent
-
-	for i = 1, count do
-		local angle = math.random() * math.pi * 2
-		local distance = math.random(SAFE_ZONE_RADIUS * 0.5, MAP_SIZE * 0.8)
-		local x = MAP_CENTER.X + math.cos(angle) * distance
-		local z = MAP_CENTER.Z + math.sin(angle) * distance
-		local flower = MapAssets.CreateFlower(Vector3.new(x, MAP_CENTER.Y + 0.5, z))
-		flower.Parent = flowersFolder
-	end
-end
-
 local function SetupLighting()
-	print("[MapGenerator] Configuring lighting...")
-	Lighting.ClockTime = 16.5
-	Lighting.Ambient = Color3.fromRGB(220, 200, 180)
-	Lighting.OutdoorAmbient = Color3.fromRGB(220, 200, 180)
-	Lighting.FogStart = 150
-	Lighting.FogEnd = MAP_SIZE * 1.8
-	Lighting.FogColor = Color3.fromRGB(200, 220, 255)
+	print("[MapGenerator] Configuring dramatic sky lighting...")
+	Lighting.ClockTime = 7  -- Sunrise/dramatic lighting
+	Lighting.Ambient = Color3.fromRGB(150, 180, 220)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 180, 220)
+	Lighting.FogStart = 100
+	Lighting.FogEnd = 2000
+	Lighting.FogColor = Color3.fromRGB(100, 150, 200)
 
-	-- Atmosphere
+	-- Atmosphere for sky effect
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.25
-	atmosphere.Color = Color3.fromRGB(220, 230, 255)
-	atmosphere.Glare = 0.6
-	atmosphere.Decay = Color3.fromRGB(210, 210, 210)
+	atmosphere.Density = 0.3
+	atmosphere.Color = Color3.fromRGB(180, 200, 255)
+	atmosphere.Glare = 0.5
+	atmosphere.Decay = Color3.fromRGB(150, 150, 180)
 	atmosphere.Parent = Lighting
 end
 
-local function CreateCeiling(parent)
-	print("[MapGenerator] Creating helicopter ceiling...")
-	local helicopterHeight = GameConfig.Helicopter and GameConfig.Helicopter.HEIGHT or 50
-	local ceilingHeight = helicopterHeight + 150
+local function CreateSpawnHub(parent)
+	print("[MapGenerator] Creating spawn hub at center...")
+	local hubFolder = Instance.new("Folder")
+	hubFolder.Name = "SpawnHub"
+	hubFolder.Parent = parent
 
-	local ceiling = Instance.new("Part")
-	ceiling.Name = "HelicopterCeiling"
-	ceiling.Size = Vector3.new(MAP_SIZE * 2.5, 1, MAP_SIZE * 2.5)
-	ceiling.Transparency = 1
-	ceiling.CanCollide = true
-	ceiling.Anchored = true
-	ceiling.CFrame = CFrame.new(MAP_CENTER.X, MAP_CENTER.Y + ceilingHeight, MAP_CENTER.Z)
-	ceiling.Parent = parent
+	local hub = MapAssets.CreateSpawnHub(MAP_CENTER)
+	hub.Parent = hubFolder
 end
 
 local function CreatePlayerBases(parent)
@@ -140,70 +58,96 @@ local function CreatePlayerBases(parent)
 	basesFolder.Name = "PlayerBases"
 	basesFolder.Parent = parent
 
-	local baseRadius = BUILD_ZONE_OUTER_RADIUS * 0.75
-
 	for i = 1, NUM_PLAYER_BASES do
 		local angle = (i - 1) / NUM_PLAYER_BASES * math.pi * 2
-		local x = MAP_CENTER.X + math.cos(angle) * baseRadius
-		local z = MAP_CENTER.Z + math.sin(angle) * baseRadius
-
+		local x = MAP_CENTER.X + math.cos(angle) * PLAYER_BASE_RADIUS
+		local z = MAP_CENTER.Z + math.sin(angle) * PLAYER_BASE_RADIUS
 		local basePosition = Vector3.new(x, MAP_CENTER.Y, z)
+
 		local playerBase = MapAssets.CreatePlayerBase(basePosition, i, MAP_CENTER)
 		playerBase.Parent = basesFolder
 	end
 end
 
-local function CreateCentralHub(parent)
-	print("[MapGenerator] Creating central hub with shop...")
-	local hubFolder = Instance.new("Folder")
-	hubFolder.Name = "CentralHub"
-	hubFolder.Parent = parent
-
-	-- Create shop
-	local shop = MapAssets.CreateShop(MAP_CENTER + Vector3.new(0, 0, 0))
-	shop.Parent = hubFolder
-
-	-- Create hub platform
-	local hubPlatform = Instance.new("Part")
-	hubPlatform.Name = "HubPlatform"
-	hubPlatform.Size = Vector3.new(60, 2, 60)
-	hubPlatform.Color = Color3.fromRGB(200, 200, 220)
-	hubPlatform.Material = Enum.Material.Concrete
-	hubPlatform.CanCollide = true
-	hubPlatform.Anchored = true
-	hubPlatform.CFrame = CFrame.new(MAP_CENTER + Vector3.new(0, 0.5, 0))
-	hubPlatform.Parent = hubFolder
-end
-
-local function CreatePaths(parent)
-	print("[MapGenerator] Creating paths from hub to bases...")
-	local pathsFolder = Instance.new("Folder")
-	pathsFolder.Name = "Paths"
-	pathsFolder.Parent = parent
-
-	local baseRadius = BUILD_ZONE_OUTER_RADIUS * 0.75
-	local pathWidth = 8
+local function CreateNeonBridges(parent)
+	print("[MapGenerator] Creating neon bridges from hub to bases...")
+	local bridgesFolder = Instance.new("Folder")
+	bridgesFolder.Name = "NeonBridges"
+	bridgesFolder.Parent = parent
 
 	for i = 1, NUM_PLAYER_BASES do
 		local angle = (i - 1) / NUM_PLAYER_BASES * math.pi * 2
-		local x = MAP_CENTER.X + math.cos(angle) * baseRadius
-		local z = MAP_CENTER.Z + math.sin(angle) * baseRadius
+		local x = MAP_CENTER.X + math.cos(angle) * PLAYER_BASE_RADIUS
+		local z = MAP_CENTER.Z + math.sin(angle) * PLAYER_BASE_RADIUS
+		local basePosition = Vector3.new(x, MAP_CENTER.Y, z)
 
-		-- Create path from center to base
-		local pathLength = baseRadius
-		local pathMidX = MAP_CENTER.X + math.cos(angle) * (baseRadius / 2)
-		local pathMidZ = MAP_CENTER.Z + math.sin(angle) * (baseRadius / 2)
+		-- Alternate bridge colors
+		local bridgeColor = (i % 2 == 0) and MapAssets.Colors.NEON_CYAN or MapAssets.Colors.NEON_PINK
 
-		local path = Instance.new("Part")
-		path.Name = "Path_" .. i
-		path.Size = Vector3.new(pathWidth, 1.5, pathLength)
-		path.Color = Color3.fromRGB(220, 180, 100)
-		path.Material = Enum.Material.Concrete
-		path.CanCollide = true
-		path.Anchored = true
-		path.CFrame = CFrame.new(pathMidX, MAP_CENTER.Y + 0.5, pathMidZ) * CFrame.Angles(0, angle, 0)
-		path.Parent = pathsFolder
+		local bridge = MapAssets.CreateNeonBridge(MAP_CENTER, basePosition, bridgeColor)
+		bridge.Parent = bridgesFolder
 	end
+end
+
+local function CreateBrainrotIslands(parent)
+	print("[MapGenerator] Creating 8 brainrot islands for each tier...")
+	local islandsFolder = Instance.new("Folder")
+	islandsFolder.Name = "BrainrotIslands"
+	islandsFolder.Parent = parent
+
+	-- Get brainrot tiers from GameConfig
+	local tiers = GameConfig.BrainrotTiers or {}
+
+	-- Create one island per tier at different positions
+	for tierIndex = 1, math.min(8, #tiers) do
+		local tierConfig = tiers[tierIndex]
+
+		-- Higher tiers are further out and higher up
+		local angle = (tierIndex - 1) / 8 * math.pi * 2
+		local radiusOffset = (tierIndex - 1) * ((BRAINROT_ISLAND_RADIUS_MAX - BRAINROT_ISLAND_RADIUS_MIN) / 7)
+		local radius = BRAINROT_ISLAND_RADIUS_MIN + radiusOffset
+		local heightVariation = (tierIndex - 1) * 10  -- Higher tiers get higher
+
+		local x = MAP_CENTER.X + math.cos(angle) * radius
+		local y = MAP_CENTER.Y + heightVariation
+		local z = MAP_CENTER.Z + math.sin(angle) * radius
+
+		local islandPosition = Vector3.new(x, y, z)
+		local island = MapAssets.CreateBrainrotIsland(islandPosition, tierIndex, tierConfig)
+		island.Parent = islandsFolder
+	end
+end
+
+local function CreateDecorationClouds(parent)
+	print("[MapGenerator] Creating decorative clouds...")
+	local cloudsFolder = Instance.new("Folder")
+	cloudsFolder.Name = "DecorationClouds"
+	cloudsFolder.Parent = parent
+
+	-- Scatter clouds around the map at various heights
+	local cloudPositions = {
+		Vector3.new(200, 150, 150),
+		Vector3.new(-200, 160, 100),
+		Vector3.new(100, 180, -250),
+		Vector3.new(-300, 140, -100),
+		Vector3.new(250, 170, -200),
+		Vector3.new(-100, 155, 300),
+	}
+
+	for _, cloudPos in ipairs(cloudPositions) do
+		local cloud = MapAssets.CreateCloud(cloudPos, Vector3.new(30, 8, 30))
+		cloud.Parent = cloudsFolder
+	end
+end
+
+local function CreateVoidFloor(parent)
+	print("[MapGenerator] Creating void floor below map...")
+	local voidFolder = Instance.new("Folder")
+	voidFolder.Name = "Void"
+	voidFolder.Parent = parent
+
+	local voidFloor = MapAssets.CreateVoidFloor(Vector3.new(MAP_CENTER.X, VOID_CENTER_Y, MAP_CENTER.Z))
+	voidFloor.Parent = voidFolder
 end
 
 -- ============================================================
@@ -211,31 +155,20 @@ end
 -- ============================================================
 
 local function GenerateMap()
-	print("[MapGenerator] Starting map generation...")
+	print("[MapGenerator] Starting sky-based map generation...")
 
 	-- Create map container
 	local mapContainer = Instance.new("Folder")
 	mapContainer.Name = "GameMap"
 	mapContainer.Parent = workspace
 
-	local terrain = Instance.new("Folder")
-	terrain.Name = "Terrain"
-	terrain.Parent = mapContainer
-
-	local waterFolder = Instance.new("Folder")
-	waterFolder.Name = "Water"
-	waterFolder.Parent = mapContainer
-
-	local decorations = Instance.new("Folder")
-	decorations.Name = "Decorations"
-	decorations.Parent = mapContainer
-
+	-- Create subfolders
 	local structures = Instance.new("Folder")
 	structures.Name = "Structures"
 	structures.Parent = mapContainer
 
-	-- 1. Delete default baseplate and spawn
-	print("[MapGenerator] Removing default baseplate and spawn...")
+	-- 1. Delete default baseplate, spawn, AND terrain
+	print("[MapGenerator] Removing default baseplate, terrain, and spawn...")
 	local baseplate = workspace:FindFirstChild("Baseplate")
 	if baseplate then
 		baseplate:Destroy()
@@ -248,83 +181,71 @@ local function GenerateMap()
 		print("[MapGenerator] Removed default SpawnLocation")
 	end
 
-	-- 2. Create island ground
-	print("[MapGenerator] Creating island ground...")
-	local ground = MapAssets.CreateIslandGround(MAP_CENTER, MAP_SIZE)
-	ground.Parent = terrain
+	-- CRITICAL: Clear ALL default terrain (the green grass)
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		terrain:Clear()
+		print("[MapGenerator] Cleared all default terrain")
+	end
 
-	-- 3. Create water below
-	print("[MapGenerator] Creating water...")
-	local water = MapAssets.CreateWater(MAP_CENTER, MAP_SIZE, WATER_HEIGHT)
-	water.Parent = waterFolder
+	-- 2a. FIRST: Create a guaranteed solid spawn floor (simple Part, cannot fail)
+	print("[MapGenerator] Creating guaranteed solid spawn floor...")
+	local spawnFloor = Instance.new("Part")
+	spawnFloor.Name = "GuaranteedSpawnFloor"
+	spawnFloor.Size = Vector3.new(100, 4, 100)
+	spawnFloor.Color = Color3.fromRGB(30, 30, 50)
+	spawnFloor.Material = Enum.Material.SmoothPlastic
+	spawnFloor.Transparency = 0
+	spawnFloor.CanCollide = true
+	spawnFloor.Anchored = true
+	spawnFloor.CFrame = CFrame.new(MAP_CENTER - Vector3.new(0, 2, 0))
+	spawnFloor.Parent = mapContainer
+	print("[MapGenerator] Spawn floor created at " .. tostring(spawnFloor.Position))
 
-	-- 4. Create safe zone
-	print("[MapGenerator] Creating safe zone...")
-	local safeZone = MapAssets.CreateSafeZone(MAP_CENTER, SAFE_ZONE_RADIUS)
-	safeZone.Parent = structures
+	-- 2b. Create spawn hub at center (decorative, on top of the solid floor)
+	CreateSpawnHub(structures)
 
-	-- 5. Create build zone
-	print("[MapGenerator] Creating build zone...")
-	local buildZone = MapAssets.CreateBuildZone(MAP_CENTER, BUILD_ZONE_INNER_RADIUS, BUILD_ZONE_OUTER_RADIUS)
-	buildZone.Parent = structures
-
-	-- 6. Create central hub with shop
-	CreateCentralHub(structures)
-
-	-- 7. Create player bases
+	-- 3. Create 8 player bases arranged in circle
 	CreatePlayerBases(structures)
 
-	-- 8. Create connecting paths
-	CreatePaths(structures)
+	-- 4. Create neon bridges connecting hub to bases
+	CreateNeonBridges(structures)
 
-	-- 9. Create sky showcase (floating brainrot display area)
-	print("[MapGenerator] Creating sky showcase...")
-	local SKY_CENTER = MAP_CENTER + Vector3.new(0, 300, 0)
-	local skyShowcase = MapAssets.CreateSkyShowcase(SKY_CENTER)
-	skyShowcase.Parent = structures
+	-- 5. Create 8 brainrot islands (one per tier)
+	CreateBrainrotIslands(structures)
 
-	-- 10. Create teleport pad near central hub to go to sky showcase
-	print("[MapGenerator] Creating teleport pad...")
-	local teleportPad = MapAssets.CreateTeleportPad(MAP_CENTER + Vector3.new(35, 1.5, 0), "SKY COLLECTION")
-	teleportPad.Parent = structures
+	-- 6. Create decorative clouds
+	CreateDecorationClouds(structures)
 
-	-- 11. Create return teleport pad on sky showcase to come back down
-	local returnPad = MapAssets.CreateTeleportPad(SKY_CENTER + Vector3.new(50, 1, 0), "RETURN TO GROUND")
-	returnPad.Parent = structures
+	-- 7. Create void floor below
+	CreateVoidFloor(mapContainer)
 
-	-- 12. Add decorations
-	AddTrees(decorations, 25)
-	AddRocks(decorations, 30)
-	AddRockClusters(decorations, 5)
-	AddFlowers(decorations, 20)
-
-	-- 13. Setup lighting
+	-- 8. Setup dramatic sky lighting
 	SetupLighting()
 
-	-- 14. Create ceiling
-	CreateCeiling(mapContainer)
-
-	-- 15. Create game spawn location
+	-- 9. Create game spawn location (on the hub)
 	print("[MapGenerator] Creating game spawn location...")
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "GameSpawn"
 	spawn.Size = Vector3.new(12, 2, 12)
-	spawn.CFrame = CFrame.new(MAP_CENTER + Vector3.new(0, 3, 0))
+	spawn.CFrame = CFrame.new(MAP_CENTER + Vector3.new(0, 5, 0))
 	spawn.Anchored = true
 	spawn.CanCollide = true
 	spawn.Material = Enum.Material.Neon
-	spawn.Color = Color3.fromRGB(100, 255, 100)
-	spawn.Transparency = 0.5
+	spawn.Color = MapAssets.Colors.NEON_CYAN
+	spawn.Transparency = 0.3
 	spawn.Duration = 0
 	spawn.CanTouch = true
 	spawn.TopSurface = Enum.SurfaceType.Smooth
 	spawn.BottomSurface = Enum.SurfaceType.Smooth
 	spawn.Parent = mapContainer
 
-	print("[MapGenerator] MAP GENERATION COMPLETE!")
-	print("[MapGenerator] Map size: " .. MAP_SIZE)
+	-- 10. Log completion
+	print("[MapGenerator] SKY-BASED MAP GENERATION COMPLETE!")
+	print("[MapGenerator] Spawn hub at: " .. tostring(MAP_CENTER))
 	print("[MapGenerator] Player bases: " .. NUM_PLAYER_BASES)
-	print("[MapGenerator] Safe zone radius: " .. SAFE_ZONE_RADIUS)
+	print("[MapGenerator] Player base radius: " .. PLAYER_BASE_RADIUS)
+	print("[MapGenerator] Brainrot island range: " .. BRAINROT_ISLAND_RADIUS_MIN .. " - " .. BRAINROT_ISLAND_RADIUS_MAX)
 end
 
 -- Run map generation with error reporting

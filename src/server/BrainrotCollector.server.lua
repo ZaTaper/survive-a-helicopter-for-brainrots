@@ -38,20 +38,10 @@ local RETRY_DELAY = 1
 -- Format: { [player] = { [tierName] = { count, timestamp } } }
 local playerCollections = {}
 
--- RemoteEvent for notifying clients of collection
-local collectionEvent = Instance.new("RemoteEvent")
-collectionEvent.Name = "BrainrotCollected"
-collectionEvent.Parent = ReplicatedStorage
-
--- RemoteEvent for notifying clients of collection updates
-local collectionUpdatedEvent = Instance.new("RemoteEvent")
-collectionUpdatedEvent.Name = "CollectionUpdated"
-collectionUpdatedEvent.Parent = ReplicatedStorage
-
--- RemoteFunction for client to request collection data
-local getCollectionFunction = Instance.new("RemoteFunction")
-getCollectionFunction.Name = "GetBrainrotCollection"
-getCollectionFunction.Parent = ReplicatedStorage
+-- Wait for RemoteEvents created by AAA_Setup
+local collectionEvent = ReplicatedStorage:WaitForChild("BrainrotCollected")
+local collectionUpdatedEvent = ReplicatedStorage:WaitForChild("CollectionUpdated")
+local getCollectionFunction = ReplicatedStorage:WaitForChild("GetBrainrotCollection")
 
 -- Get the collection data store
 local function GetCollectionDataStore()

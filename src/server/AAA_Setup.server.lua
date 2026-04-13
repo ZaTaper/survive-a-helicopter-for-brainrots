@@ -66,15 +66,24 @@ CreateRemoteEvent("WaveEnded", ReplicatedStorage)
 CreateRemoteEvent("RoundEnded", ReplicatedStorage)
 
 -- ============================================================================
--- BRAINROT SYSTEM EVENTS
+-- BRAINROT SYSTEM EVENTS (collectible brainrots, no combat)
 -- ============================================================================
 print("[Setup] Creating BrainrotSystem remote events...")
 CreateRemoteEvent("BrainrotSpawned", ReplicatedStorage)
 CreateRemoteEvent("BrainrotDespawned", ReplicatedStorage)
-CreateRemoteEvent("BrainrotDamaged", ReplicatedStorage)
 CreateRemoteEvent("BrainrotCollected", ReplicatedStorage)
 CreateRemoteEvent("CollectionUpdated", ReplicatedStorage)
 CreateRemoteFunction("GetBrainrotCollection", ReplicatedStorage)
+
+-- ============================================================================
+-- GRAB/CARRY/DROP SYSTEM EVENTS (helicopter carries brainrots)
+-- ============================================================================
+print("[Setup] Creating GrabSystem remote events...")
+CreateRemoteEvent("GrabBrainrot", ReplicatedStorage)
+CreateRemoteEvent("DropBrainrot", ReplicatedStorage)
+CreateRemoteEvent("CarryStateChanged", ReplicatedStorage)
+CreateRemoteEvent("BrainrotGrabbed", ReplicatedStorage)
+CreateRemoteEvent("BrainrotDroppedAtBase", ReplicatedStorage)
 
 -- ============================================================================
 -- MUSIC / GAME PHASE EVENTS
@@ -179,6 +188,7 @@ CreateRemoteEvent("TeleportAllToAdmin", AdminEvents)
 -- BASE SYSTEM EVENTS
 -- ============================================================================
 print("[Setup] Creating BaseSystem remote events...")
+CreateRemoteEvent("BaseUpdated", ReplicatedStorage)
 CreateRemoteEvent("MoneyEarned", ReplicatedStorage)
 CreateRemoteFunction("GetBaseInfo", ReplicatedStorage)
 

@@ -14,20 +14,10 @@ local MoneySystem = {}
 -- Format: { [player] = amount }
 local playerMoney = {}
 
--- RemoteEvent for notifying clients of money changes
-local moneyChangedEvent = Instance.new("RemoteEvent")
-moneyChangedEvent.Name = "MoneyChanged"
-moneyChangedEvent.Parent = ReplicatedStorage
-
--- RemoteFunction for client to check their balance
-local getBalanceFunction = Instance.new("RemoteFunction")
-getBalanceFunction.Name = "GetBalance"
-getBalanceFunction.Parent = ReplicatedStorage
-
--- RemoteEvent for displaying floating money notifications
-local floatingTextEvent = Instance.new("RemoteEvent")
-floatingTextEvent.Name = "ShowFloatingMoney"
-floatingTextEvent.Parent = ReplicatedStorage
+-- Wait for RemoteEvents created by AAA_Setup
+local moneyChangedEvent = ReplicatedStorage:WaitForChild("MoneyChanged")
+local getBalanceFunction = ReplicatedStorage:WaitForChild("GetBalance")
+local floatingTextEvent = ReplicatedStorage:WaitForChild("ShowFloatingMoney")
 
 -- Helper function defined before use: Initialize money for a player
 -- @param player Player - The player to initialize
@@ -254,5 +244,10 @@ local function DebugPrintMoneyStats()
 end
 
 task.spawn(DebugPrintMoneyStats)
+
+-- Export to _G so other server scripts can access it
+_G.MoneySystem = MoneySystem
+
+print("[MoneySystem] Exported to _G.MoneySystem")
 
 return MoneySystem

@@ -18,15 +18,9 @@ local AUTO_SAVE_INTERVAL = 60 -- Auto-save every 60 seconds
 local RETRY_ATTEMPTS = 3
 local RETRY_DELAY = 1 -- Second
 
--- RemoteEvent for sending player data to client
-local playerDataEvent = Instance.new("RemoteEvent")
-playerDataEvent.Name = "PlayerDataLoaded"
-playerDataEvent.Parent = ReplicatedStorage
-
--- RemoteFunction for client to request stat update
-local updateStatsFunction = Instance.new("RemoteFunction")
-updateStatsFunction.Name = "UpdateStats"
-updateStatsFunction.Parent = ReplicatedStorage
+-- Wait for RemoteEvents created by AAA_Setup
+local playerDataEvent = ReplicatedStorage:WaitForChild("PlayerDataLoaded")
+local updateStatsFunction = ReplicatedStorage:WaitForChild("UpdateStats")
 
 -- Stores loaded player data in memory
 -- Format: { [player] = { data = playerData, lastSaved = timestamp, changed = boolean } }

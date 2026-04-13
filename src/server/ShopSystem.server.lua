@@ -15,35 +15,16 @@ local function WaitForMoneySystem()
 	return _G.MoneySystem
 end
 
--- Create Shop folder with RemoteEvents and RemoteFunction
-local ShopFolder = Instance.new("Folder")
-ShopFolder.Name = "Shop"
-ShopFolder.Parent = ReplicatedStorage
+-- Wait for Shop folder created by AAA_Setup
+local ShopFolder = ReplicatedStorage:WaitForChild("Shop")
 
--- Define all remote objects before using them
-local BuyItemEvent = Instance.new("RemoteEvent")
-BuyItemEvent.Name = "BuyItem"
-BuyItemEvent.Parent = ShopFolder
-
-local GetMoneyFunction = Instance.new("RemoteFunction")
-GetMoneyFunction.Name = "GetMoney"
-GetMoneyFunction.Parent = ShopFolder
-
-local GetShopItemsFunction = Instance.new("RemoteFunction")
-GetShopItemsFunction.Name = "GetShopItems"
-GetShopItemsFunction.Parent = ShopFolder
-
-local MoneyChangedEvent = Instance.new("RemoteEvent")
-MoneyChangedEvent.Name = "MoneyChanged"
-MoneyChangedEvent.Parent = ShopFolder
-
-local PurchaseSuccessEvent = Instance.new("RemoteEvent")
-PurchaseSuccessEvent.Name = "PurchaseSuccess"
-PurchaseSuccessEvent.Parent = ShopFolder
-
-local PurchaseFailedEvent = Instance.new("RemoteEvent")
-PurchaseFailedEvent.Name = "PurchaseFailed"
-PurchaseFailedEvent.Parent = ShopFolder
+-- Wait for remote objects created by AAA_Setup
+local BuyItemEvent = ShopFolder:WaitForChild("BuyItem")
+local GetMoneyFunction = ShopFolder:WaitForChild("GetMoney")
+local GetShopItemsFunction = ShopFolder:WaitForChild("GetShopItems")
+local MoneyChangedEvent = ShopFolder:WaitForChild("MoneyChanged")
+local PurchaseSuccessEvent = ShopFolder:WaitForChild("PurchaseSuccess")
+local PurchaseFailedEvent = ShopFolder:WaitForChild("PurchaseFailed")
 
 -- Item definitions with categories and prices
 local ITEMS = {

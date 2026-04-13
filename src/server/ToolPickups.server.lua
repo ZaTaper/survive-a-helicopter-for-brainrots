@@ -75,10 +75,8 @@ end
 
 -- Setup pickup detection using raycasting or TouchInterest
 function ToolPickups._SetupPickupDetection()
-	-- Create RemoteEvent for pickup notifications
-	local pickupEvent = Instance.new("RemoteEvent")
-	pickupEvent.Name = "PickupCollected"
-	pickupEvent.Parent = ReplicatedStorage
+	-- Wait for RemoteEvent created by AAA_Setup
+	local pickupEvent = ReplicatedStorage:WaitForChild("PickupCollected")
 
 	-- Server-side detection: listen for clients claiming to pick up items
 	pickupEvent.OnServerEvent:Connect(function(player, pickupId)

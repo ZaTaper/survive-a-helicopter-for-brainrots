@@ -25,67 +25,85 @@ local MAP_SIZE = GameConfig.Map.SIZE
 local SAFE_ZONE_RADIUS = GameConfig.Map.SAFE_ZONE_RADIUS
 local SPAWN_RADIUS = GameConfig.Map.SPAWN_RADIUS
 
--- Map center
-local MAP_CENTER = Vector3.new(0, 0, 0)
+-- Map center (sky-based at Y=200)
+local MAP_CENTER = Vector3.new(0, 200, 0)
+
+-- Floating island positions and heights (8 islands around the central hub)
+local ISLAND_COUNT = 8
+local ISLAND_RADIUS_RANGE = { min = 300, max = 400 }
+local ISLAND_HEIGHT_RANGE = { min = 180, max = 280 }
 
 -- Initialize spawn points when called
 function SpawnManager.InitializeSpawnPoints()
-	print("[SpawnManager] Initializing spawn points...")
+	print("[SpawnManager] Initializing spawn points for sky-based map...")
 
-	-- Generate player spawn points in safe zone (circular distribution)
+	-- Generate player spawn points around central hub at Y=200 (radius ~30)
 	local playerSpawnCount = 8
-	local playerSpawnRadius = SAFE_ZONE_RADIUS * 0.7
+	local playerSpawnRadius = 30
 
 	for i = 1, playerSpawnCount do
 		local angle = (i - 1) / playerSpawnCount * math.pi * 2
 		local spawnPos = MAP_CENTER
 			+ Vector3.new(
 				math.cos(angle) * playerSpawnRadius,
-				3,
+				0,
 				math.sin(angle) * playerSpawnRadius
 			)
 		table.insert(playerSpawnPoints, spawnPos)
 	end
 
-	-- Generate brainrot spawn points around map edges (circular distribution)
-	local brainrotSpawnCount = 16
-	local angleStep = (math.pi * 2) / brainrotSpawnCount
+	-- Generate brainrot spawn points on floating islands (8 islands)
+	-- Each island gets 2 spawn points on its surface
+	for island = 1, ISLAND_COUNT do
+		local islandAngle = (island - 1) / ISLAND_COUNT * math.pi * 2
 
-	for i = 1, brainrotSpawnCount do
-		local angle = (i - 1) * angleStep
-		local spawnPos = MAP_CENTER
-			+ Vector3.new(
-				math.cos(angle) * SPAWN_RADIUS,
+		-- Randomize island position within range
+		local islandRadius = ISLAND_RADIUS_RANGE.min +
+			(ISLAND_RADIUS_RANGE.max - ISLAND_RADIUS_RANGE.min) * (island / ISLAND_COUNT)
+		local islandHeight = ISLAND_HEIGHT_RANGE.min +
+			(ISLAND_HEIGHT_RANGE.max - ISLAND_HEIGHT_RANGE.min) * ((island - 1) / (ISLAND_COUNT - 1))
+
+		local islandBasePos = MAP_CENTER + Vector3.new(
+			math.cos(islandAngle) * islandRadius,
+			islandHeight - MAP_CENTER.Y,
+			math.sin(islandAngle) * islandRadius
+		)
+
+		-- Create 2 spawn points per island on surface
+		for spawnOnIsland = 1, 2 do
+			local offsetAngle = (spawnOnIsland - 1) * math.pi
+			local spawnPos = islandBasePos + Vector3.new(
+				math.cos(offsetAngle) * 15,
 				5,
-				math.sin(angle) * SPAWN_RADIUS
+				math.sin(offsetAngle) * 15
 			)
-		table.insert(brainrotSpawnPoints, spawnPos)
+			table.insert(brainrotSpawnPoints, spawnPos)
+		end
 	end
 
-	-- Generate tool spawn points in build zone
-	local buildZoneInnerRadius = SAFE_ZONE_RADIUS * 1.5
-	local buildZoneOuterRadius = SAFE_ZONE_RADIUS * 3.5
+	-- Generate tool spawn points around player bases at Y=200 (radius ~150)
 	local toolSpawnCount = 12
+	local toolSpawnRadius = 150
 
 	for i = 1, toolSpawnCount do
 		local angle = (i - 1) / toolSpawnCount * math.pi * 2
-		local radius = buildZoneInnerRadius
-			+ (buildZoneOuterRadius - buildZoneInnerRadius) * (i % 3) / 3
 		local spawnPos = MAP_CENTER
 			+ Vector3.new(
-				math.cos(angle) * radius,
-				2,
-				math.sin(angle) * radius
+				math.cos(angle) * toolSpawnRadius,
+				0,
+				math.sin(angle) * toolSpawnRadius
 			)
 		table.insert(toolSpawnPoints, spawnPos)
 	end
 
 	print(
-		"[SpawnManager] Initialized "
+		"[SpawnManager] Initialized for sky map: "
 			.. #playerSpawnPoints
-			.. " player spawns, "
+			.. " player spawns at hub, "
 			.. #brainrotSpawnPoints
-			.. " brainrot spawns, "
+			.. " brainrot spawns on "
+			.. ISLAND_COUNT
+			.. " islands, "
 			.. #toolSpawnPoints
 			.. " tool spawns"
 	)

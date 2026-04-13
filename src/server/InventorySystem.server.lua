@@ -15,15 +15,9 @@ local PlayerData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild
 -- Format: { [player] = playerDataTable }
 local playerInventories = {}
 
--- RemoteEvent for notifying clients of inventory changes
-local inventoryUpdateEvent = Instance.new("RemoteEvent")
-inventoryUpdateEvent.Name = "InventoryUpdate"
-inventoryUpdateEvent.Parent = ReplicatedStorage
-
--- RemoteFunction for clients to request inventory data
-local getInventoryFunction = Instance.new("RemoteFunction")
-getInventoryFunction.Name = "GetInventory"
-getInventoryFunction.Parent = ReplicatedStorage
+-- Wait for RemoteEvents created by AAA_Setup
+local inventoryUpdateEvent = ReplicatedStorage:WaitForChild("InventoryUpdate")
+local getInventoryFunction = ReplicatedStorage:WaitForChild("GetInventory")
 
 -- Initialize a player's inventory in memory
 -- @param player Player - The player to initialize

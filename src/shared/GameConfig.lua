@@ -62,12 +62,15 @@ GameConfig.Player = {
 	BUILD_TIME = 60,
 }
 
--- Map settings
+-- Map settings (sky-based floating map)
 GameConfig.Map = {
 	SIZE = 500,
 	SPAWN_RADIUS = 400,
 	SAFE_ZONE_RADIUS = 50,
-	WATER_HEIGHT = -10,
+	WATER_HEIGHT = 100,         -- Void death threshold (fall below this = death)
+	MAP_CENTER_Y = 200,         -- Sky map center height
+	PLAYER_BASE_RADIUS = 150,   -- Distance from hub to player bases
+	BRAINROT_ISLAND_RADIUS = 350, -- Distance from hub to brainrot islands
 }
 
 -- Wave settings

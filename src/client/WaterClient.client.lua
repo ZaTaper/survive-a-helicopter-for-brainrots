@@ -164,7 +164,7 @@ local function CreateNotificationUI()
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Text"
-	textLabel.Text = "You fell into the water!"
+	textLabel.Text = "You fell into the void!"
 	textLabel.Font = Enum.Font.Gotham
 	textLabel.TextSize = 18
 	textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -177,7 +177,7 @@ local function CreateNotificationUI()
 
 	local progressLabel = Instance.new("TextLabel")
 	progressLabel.Name = "Progress"
-	progressLabel.Text = "Restarting in 3 seconds..."
+	progressLabel.Text = "Respawning in 3 seconds..."
 	progressLabel.Font = Enum.Font.Gotham
 	progressLabel.TextSize = 14
 	progressLabel.TextColor3 = Color3.fromRGB(150, 200, 255)

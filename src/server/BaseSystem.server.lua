@@ -22,19 +22,13 @@ local BASE_CONFIG = {
 	SPAWN_RADIUS = 200,  -- Distance from center to place bases
 	BASE_SIZE = 30,      -- Size of each base platform
 	BASES_PER_RING = 8,  -- Number of bases in a circle around spawn
-	HEIGHT = 5,          -- Height above ground
+	HEIGHT = 200,        -- Height above ground (sky map is at Y=200)
 	PASSIVE_MONEY_TICK = 10, -- Seconds between passive money generation
 }
 
--- RemoteEvent for notifying client of base updates
-local baseUpdatedEvent = Instance.new("RemoteEvent")
-baseUpdatedEvent.Name = "BaseUpdated"
-baseUpdatedEvent.Parent = ReplicatedStorage
-
--- RemoteFunction for querying player base info
-local getBaseInfoFunction = Instance.new("RemoteFunction")
-getBaseInfoFunction.Name = "GetBaseInfo"
-getBaseInfoFunction.Parent = ReplicatedStorage
+-- Wait for RemoteEvents created by AAA_Setup
+local baseUpdatedEvent = ReplicatedStorage:WaitForChild("BaseUpdated")
+local getBaseInfoFunction = ReplicatedStorage:WaitForChild("GetBaseInfo")
 
 -- Helper function defined before use: Calculate base position in circular layout
 -- @param playerIndex number - Index of the player (starting from 1)
@@ -82,7 +76,7 @@ local function CalculatePassiveMoneyEarned(player)
 	for tierIndex, count in pairs(collected) do
 		if tierIndex >= 1 and tierIndex <= #GameConfig.BrainrotTiers then
 			local tierConfig = GameConfig.BrainrotTiers[tierIndex]
-			local passiveRatePerTick = tierConfig.money / 10 -- Passive rate is 1/10 of kill rate
+			local passiveRatePerTick = tierConfig.money / 5 -- Passive rate is 1/5 of kill rate
 			totalMoney = totalMoney + (passiveRatePerTick * count)
 		end
 	end
@@ -99,7 +93,7 @@ local function CreateFloatingBrainrotVisual(player, tierIndex)
 		return nil
 	end
 
-	local displayPos = BaseModel.GetDisplayAreaPosition(playerBases[player])
+	local displayPos = BaseModel.GetFloatingDisplayPosition(playerBases[player])
 	if not displayPos then
 		return nil
 	end
@@ -120,7 +114,16 @@ local function CreateFloatingBrainrotVisual(player, tierIndex)
 	part.Color = tier.color or Color3.fromRGB(255, 255, 255)
 	part.Material = Enum.Material.Neon
 	part.CanCollide = false
-	part.CFrame = CFrame.new(displayPos + Vector3.new(math.random(-10, 10), 5 + math.random(0, 5), math.random(-10, 10)))
+
+	-- Calculate position based on grid pattern
+	local count = floatingBrainrots[player] and floatingBrainrots[player][tierIndex] or 0
+	local row = math.floor(count / 4) -- 4 brainrots per row
+	local col = count % 4
+	local xOffset = (col - 1.5) * 3 -- Spread 3 studs apart horizontally
+	local zOffset = row * 3 -- Spread 3 studs apart vertically
+	local yOffset = 5 + (tierIndex - 1) * 0.5 -- Slightly higher for rarer tiers
+
+	part.CFrame = CFrame.new(displayPos + Vector3.new(xOffset, yOffset, zOffset))
 	part.Anchored = true
 	part.Parent = model
 
@@ -137,15 +140,7 @@ local function CreateFloatingBrainrotVisual(player, tierIndex)
 	end
 	floatingBrainrots[player][tierIndex] = (floatingBrainrots[player][tierIndex] or 0) + 1
 
-	-- Remove after 30 seconds (fade away)
-	task.delay(30, function()
-		if model and model.Parent then
-			model:Destroy()
-			if floatingBrainrots[player] then
-				floatingBrainrots[player][tierIndex] = math.max(0, (floatingBrainrots[player][tierIndex] or 1) - 1)
-			end
-		end
-	end)
+	-- Brainrot visuals are permanent - they stay until player leaves
 
 	return model
 end
@@ -167,6 +162,35 @@ local function StartPassiveMoneyLoop()
 	end
 end
 
+-- Helper function: Try to find a pre-built base from MapGenerator
+-- @param playerIndex number - The player index for base assignment
+-- @return Instance - The pre-built base folder, or nil if not found
+local function FindPreBuiltBase(playerIndex)
+	local gameMap = workspace:FindFirstChild("GameMap")
+	if not gameMap then return nil end
+	local structures = gameMap:FindFirstChild("Structures")
+	if not structures then return nil end
+	local playerBasesFolder = structures:FindFirstChild("PlayerBases")
+	if not playerBasesFolder then return nil end
+
+	-- Look for base by index attribute
+	for _, child in ipairs(playerBasesFolder:GetChildren()) do
+		if child:IsA("Model") or child:IsA("Folder") then
+			local baseIndex = child:GetAttribute("BaseIndex")
+			if baseIndex == playerIndex then
+				return child
+			end
+		end
+	end
+
+	-- Fallback: get by child order
+	local children = playerBasesFolder:GetChildren()
+	if playerIndex <= #children then
+		return children[playerIndex]
+	end
+	return nil
+end
+
 -- Create a base for a player
 -- @param player Player - The player to create a base for
 -- @return Instance - The base folder, or nil if failed
@@ -177,21 +201,28 @@ function BaseSystem.CreatePlayerBase(player)
 
 	-- Get a unique position for this player
 	local playerIndex = GetPlayerIndex(player)
-	local basePosition = CalculateBasePosition(playerIndex)
 
-	-- Create the base using BaseModel
-	local baseFolder = BaseModel.CreateBase(player, basePosition)
+	-- Try to find a pre-built base from MapGenerator first
+	local baseFolder = FindPreBuiltBase(playerIndex)
 
-	if baseFolder then
-		playerBases[player] = baseFolder
-		playerCollectedBrainrots[player] = {} -- Initialize empty brainrot collection
+	-- If no pre-built base, create one at sky height
+	if not baseFolder then
+		local basePosition = CalculateBasePosition(playerIndex)
+		baseFolder = BaseModel.CreateBase(player, basePosition)
 
-		print("[BaseSystem] Created base for " .. player.Name .. " at position " .. tostring(basePosition))
-		return baseFolder
+		if baseFolder then
+			print("[BaseSystem] Created new base for " .. player.Name .. " at position " .. tostring(basePosition))
+		else
+			warn("[BaseSystem] Failed to create base for " .. player.Name)
+			return nil
+		end
+	else
+		print("[BaseSystem] Using pre-built base for " .. player.Name)
 	end
 
-	warn("[BaseSystem] Failed to create base for " .. player.Name)
-	return nil
+	playerBases[player] = baseFolder
+	playerCollectedBrainrots[player] = {} -- Initialize empty brainrot collection
+	return baseFolder
 end
 
 -- Get a player's base
@@ -242,6 +273,13 @@ function BaseSystem.GetCollectedBrainrots(player)
 	return playerCollectedBrainrots[player]
 end
 
+-- Get total passive income per tick for a player
+-- @param player Player - The player
+-- @return number - Total passive money earned per tick
+function BaseSystem.GetTotalPassiveIncome(player)
+	return CalculatePassiveMoneyEarned(player)
+end
+
 -- Check if a position is within a player's base area
 -- @param position Vector3 - The position to check
 -- @param player Player - The player who owns the base
@@ -252,14 +290,37 @@ function BaseSystem.IsInPlayerBase(position, player)
 		return false
 	end
 
-	local basePlatform = base:FindFirstChild("BasePlatform")
-	if not basePlatform then
+	-- Find base center position from HexagonalFloor or any child Part
+	local baseCenter = nil
+
+	-- Try HexagonalFloor first (MapAssets pre-built bases)
+	local hexFloor = base:FindFirstChild("HexagonalFloor")
+	if hexFloor then
+		local firstSegment = hexFloor:FindFirstChild("HexSegment_1")
+		if firstSegment then
+			baseCenter = firstSegment.Position
+		end
+	end
+
+	-- Fallback: find any Part descendant
+	if not baseCenter then
+		for _, child in ipairs(base:GetDescendants()) do
+			if child:IsA("BasePart") then
+				baseCenter = child.Position
+				break
+			end
+		end
+	end
+
+	if not baseCenter then
 		return false
 	end
 
-	-- Check if position is within the base platform bounds
-	local distance = (position - basePlatform.Position).Magnitude
-	return distance <= (BASE_CONFIG.BASE_SIZE / 2 + 5) -- 5 stud margin
+	-- Check if position is within the base area (use horizontal distance only)
+	local dx = position.X - baseCenter.X
+	local dz = position.Z - baseCenter.Z
+	local horizontalDistance = math.sqrt(dx * dx + dz * dz)
+	return horizontalDistance <= (BASE_CONFIG.BASE_SIZE / 2 + 10) -- 10 stud margin
 end
 
 -- Get the landing pad position for a player's base
@@ -271,7 +332,7 @@ function BaseSystem.GetLandingPadPosition(player)
 		return nil
 	end
 
-	return BaseModel.GetLandingPadPosition(base)
+	return BaseModel.GetBuildingPadPosition(base)
 end
 
 -- Get the brainrot display area position for a player's base
@@ -283,7 +344,7 @@ function BaseSystem.GetDisplayAreaPosition(player)
 		return nil
 	end
 
-	return BaseModel.GetDisplayAreaPosition(base)
+	return BaseModel.GetFloatingDisplayPosition(base)
 end
 
 -- Add a collected brainrot visual to the display area
@@ -318,13 +379,29 @@ getBaseInfoFunction.OnServerInvoke = function(player)
 		return nil
 	end
 
-	local basePlatform = base:FindFirstChild("BasePlatform")
-	if not basePlatform then
+	-- Find base center from HexagonalFloor or any Part
+	local baseCenter = nil
+	local hexFloor = base:FindFirstChild("HexagonalFloor")
+	if hexFloor then
+		local firstSegment = hexFloor:FindFirstChild("HexSegment_1")
+		if firstSegment then
+			baseCenter = firstSegment.Position
+		end
+	end
+	if not baseCenter then
+		for _, child in ipairs(base:GetDescendants()) do
+			if child:IsA("BasePart") then
+				baseCenter = child.Position
+				break
+			end
+		end
+	end
+	if not baseCenter then
 		return nil
 	end
 
 	return {
-		basePosition = basePlatform.Position,
+		basePosition = baseCenter,
 		baseSize = BASE_CONFIG.BASE_SIZE,
 		baseRadius = BASE_CONFIG.BASE_SIZE / 2,
 		collectedBrainrots = BaseSystem.GetCollectedBrainrots(player),

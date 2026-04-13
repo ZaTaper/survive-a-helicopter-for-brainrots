@@ -554,19 +554,9 @@ if not AdminEvents:FindFirstChild("ReceiveAnnouncement") then
 	announcementEvent.Parent = AdminEvents
 end
 
--- Create GiveAllMoney event if it doesn't exist
-if not AdminEvents:FindFirstChild("GiveAllMoney") then
-	Instance.new("RemoteEvent").Name = "GiveAllMoney"
-end
-
--- Create TeleportAllToAdmin event if it doesn't exist
-if not AdminEvents:FindFirstChild("TeleportAllToAdmin") then
-	Instance.new("RemoteEvent").Name = "TeleportAllToAdmin"
-end
-
--- Create NukeAllBrainrots event if it doesn't exist
-if not AdminEvents:FindFirstChild("NukeAllBrainrots") then
-	Instance.new("RemoteEvent").Name = "NukeAllBrainrots"
-end
+-- These events are created by AAA_Setup, just verify they exist
+local _giveAllMoney = AdminEvents:FindFirstChild("GiveAllMoney")
+local _teleportAll = AdminEvents:FindFirstChild("TeleportAllToAdmin")
+local _nukeAll = AdminEvents:FindFirstChild("NukeAllBrainrots")
 
 print("[AdminSystem] Loaded - Admin commands ready for '" .. ADMIN_USERNAME .. "'")
