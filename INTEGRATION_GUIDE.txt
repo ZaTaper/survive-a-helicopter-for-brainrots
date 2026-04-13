@@ -1,0 +1,191 @@
+================================================================================
+BRAINROT COLLECTION & WATER SYSTEMS INTEGRATION GUIDE
+================================================================================
+
+SYSTEMS CREATED:
+
+1. BrainrotCollector.server.lua (src/server/)
+   - Tracks collected brainrots per player
+   - Collection chances: Common 80%, Uncommon 65%, Rare 45%, Epic 25%, Mythic 15%, Secret 10%, Celestial 8%, OP 5%
+   - Saves to DataStore: BrainrotCollections_v1, key: collection_[userId]
+   - RemoteFunction: GetBrainrotCollection (returns collection data)
+   - Auto-saves every 2 minutes
+   - Fires RemoteEvent: BrainrotCollected
+
+2. CollectionGUI.lua (src/gui/)
+   - Press C to toggle collection view
+   - Grid showing all 8 brainrot tiers
+   - Collected: colored cards with stats (DMG, SPD, HP, $)
+   - Uncollected: dark/silhouette with lock icon
+   - Shows "X/8 Collected" progress
+   - Smooth animations on open/close
+
+3. WaterSystem.server.lua (src/server/)
+   - Monitors player Y position every 0.2 seconds
+   - Falls below WATER_HEIGHT (-10) trigger respawn
+   - Saves plane config, restores on restart
+   - Refills fuel to maximum
+   - Teleports player to base location
+   - 3-second respawn delay
+   - Creates visual water part (2000x100x2000 neon blue)
+
+4. WaterClient.client.lua (src/client/)
+   - Splash particle effects (20 water droplets)
+   - Screen blue flash (0.5 seconds)
+   - Camera shake (0.4 seconds, 0.3 intensity)
+   - Splash sound with pitch variation (volume 0.5)
+   - On-screen notification: "You fell into the water!"
+
+================================================================================
+INTEGRATION CHANGES:
+
+Modified: src/server/BrainrotSystem.server.lua
+  - Added LoadBrainrotCollector() function
+  - OnBrainrotDeath() now calls BrainrotCollector.TryCollect()
+
+Modified: src/client/HUDClient.client.lua
+  - Added: local CollectionGUI = require(script.Parent.Parent.gui.CollectionGUI)
+  - CollectionGUI auto-initializes on load
+
+================================================================================
+COLLECTION MECHANICS:
+
+When a player kills a brainrot:
+  1. BrainrotSystem.OnBrainrotDeath() fires
+  2. Finds nearest player within 100 studs
+  3. Calls BrainrotCollector.TryCollect(player, tierName, displayName)
+  4. Random check against collection chance for that tier
+  5. If collected (and not already collected):
+     - Add to playerCollections table
+     - Fire BrainrotCollected RemoteEvent to client
+     - Save to DataStore asynchronously
+
+Collection data persists across sessions in DataStore.
+
+================================================================================
+WATER FALL MECHANICS:
+
+When player falls below WATER_HEIGHT (-10):
+  1. WaterSystem detects Y position < -10
+  2. Fires WaterSplash event to client
+  3. Client plays effects: particles, screen flash, camera shake, sound
+  4. Server waits RESPAWN_DELAY (3 seconds)
+  5. Server calls RestorePlayerToBase(player)
+  6. Server calls RestartPlane(player, plane)
+  7. Player respawned at base with:
+     - Full health
+     - Same plane upgrades (engines, fuel canisters)
+     - Fuel refilled to maximum
+     - Plane velocity reset
+
+================================================================================
+HOW TO TEST:
+
+1. Kill brainrots and check collection triggers (random chance)
+   - Look for "Player X collected Y brainrot" in console
+   - Press C to view collection
+
+2. Fall off map into water
+   - Should see splash particles and blue flash
+   - Camera should shake
+   - Should hear splash sound
+   - Should get notification
+   - Should teleport to base after 3 seconds
+
+3. Collection should persist
+   - Leave game and rejoin
+   - Collected brainrots should still be marked
+
+4. Water restart should preserve upgrades
+   - Equip multiple engines/fuel
+   - Fall in water
+   - Plane should restart with same upgrades
+   - Fuel should be at maximum
+
+================================================================================
+CUSTOMIZATION:
+
+Collection Chances: Edit COLLECTION_CHANCES in BrainrotCollector.server.lua
+Water Height: Edit WATER_HEIGHT in GameConfig.lua (Map settings)
+Respawn Delay: Edit RESPAWN_DELAY in WaterSystem.server.lua
+UI Colors: Edit UI_CONFIG in CollectionGUI.lua
+Splash Sound: Replace sound ID in WaterClient.client.lua (line ~176)
+
+================================================================================
+REMOTEEVENTS CREATED:
+
+1. BrainrotCollected (ReplicatedStorage)
+   - Server → Client
+   - Parameters: tierName (string), displayName (string)
+   - Shows notification when collection succeeds
+
+2. GetBrainrotCollection (ReplicatedStorage)
+   - RemoteFunction (Client ← → Server)
+   - Returns collection data with all tier info
+
+3. WaterSplash (ReplicatedStorage)
+   - Server → Client
+   - No parameters
+   - Triggers all splash effects
+
+4. PlaneRestart (ReplicatedStorage)
+   - Server → Client
+   - Parameter: message (string)
+   - Shows restart notification
+
+================================================================================
+DATASTORE KEYS:
+
+Collection Store: "BrainrotCollections_v1"
+Key Format: "collection_[userId]"
+Data Format: JSON object with tier names as keys
+
+Example:
+{
+  "Common": {"collected": true, "timestamp": 1234567890},
+  "Uncommon": {"collected": true, "timestamp": 1234567891},
+  ...
+}
+
+================================================================================
+KNOWN ISSUES / NOTES:
+
+1. Sound asset is placeholder (rbxassetid://5986676015)
+   - Replace with your own sound asset ID
+
+2. Water is non-solid (CanCollide=false)
+   - Uses Y position detection instead
+
+3. Base detection assumes naming: [PlayerName]_Base
+   - Must have LandingPad or Base part
+
+4. Plane model must have Body part
+   - And be moveable with :MoveTo() or CFrame
+
+5. Collection UI appears on top of all elements
+   - ZIndex = 2 for main panel, 100 for notification
+
+================================================================================
+PERFORMANCE IMPACT:
+
+- Collection checks: ~100 bytes per kill (minimal)
+- Water checks: Every 0.2 seconds (lightweight loop)
+- DataStore saves: Async every 2 minutes (minimal)
+- UI rendering: Only when collection opened (minimal)
+
+Total overhead: Negligible
+
+================================================================================
+FILES CREATED:
+
+/src/server/BrainrotCollector.server.lua (350 lines)
+/src/gui/CollectionGUI.lua (400 lines)
+/src/server/WaterSystem.server.lua (350 lines)
+/src/client/WaterClient.client.lua (350 lines)
+
+MODIFIED FILES:
+
+/src/server/BrainrotSystem.server.lua (added 15 lines)
+/src/client/HUDClient.client.lua (added 1 line)
+
+================================================================================

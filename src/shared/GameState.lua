@@ -17,6 +17,7 @@ local currentPhase = GameState.Phase.LOBBY
 local waveNumber = 0
 local timeRemaining = 0
 local playersAlive = 0
+local alivePlayersList = {}
 
 -- Check if game is in lobby phase
 -- @return boolean
@@ -72,12 +73,16 @@ function GameState.GetPlayersAlive()
 	return playersAlive
 end
 
+-- Get list of alive players
+-- @return table
+function GameState.GetAlivePlayersList()
+	return alivePlayersList
+end
+
 -- Set the current phase (server-side only)
 -- @param phase string - One of GameState.Phase values
 function GameState.SetPhase(phase)
-	if GameState.Phase[phase] then
-		currentPhase = phase
-	end
+	currentPhase = phase
 end
 
 -- Set wave number (server-side only)
@@ -96,6 +101,13 @@ end
 -- @param count number
 function GameState.SetPlayersAlive(count)
 	playersAlive = math.max(0, count)
+end
+
+-- Set the list of alive players
+-- @param players table - Array of player objects
+function GameState.SetAlivePlayersList(players)
+	alivePlayersList = players or {}
+	playersAlive = #alivePlayersList
 end
 
 -- Get all current state as a table (for broadcasting to clients)

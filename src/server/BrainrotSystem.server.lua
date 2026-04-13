@@ -2,10 +2,26 @@
 -- Server-side brainrot spawning, AI, damage, and management system
 -- Handles wave spawning, chasing, attacking, loot drops, and cleanup
 
-local GameConfig = require(game.ServerScriptService:WaitForChild("GameConfig"))
-local BrainrotData = require(game.ServerScriptService:WaitForChild("BrainrotData"))
-local BrainrotModel = require(game.ServerStorage:WaitForChild("BrainrotModel"))
-local SpawnManager = require(game.ServerScriptService:WaitForChild("SpawnManager"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local BrainrotData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BrainrotData"))
+local BrainrotModel = require(ServerStorage:WaitForChild("Storage"):WaitForChild("BrainrotModel"))
+local SpawnManager = require(script.Parent:WaitForChild("SpawnManager"))
+
+-- Optional: Load BrainrotCollector for collection system
+local BrainrotCollector = nil
+local function LoadBrainrotCollector()
+	if not BrainrotCollector then
+		local success, collector = pcall(function()
+			return require(script.Parent:WaitForChild("BrainrotCollector"))
+		end)
+		if success then
+			BrainrotCollector = collector
+		end
+	end
+	return BrainrotCollector
+end
 
 local BrainrotSystem = {}
 
@@ -260,6 +276,8 @@ function BrainrotSystem.OnBrainrotDeath(uniqueId)
 
 	-- Award kill to player if they're close enough
 	local players = game:GetService("Players"):GetPlayers()
+	local killingPlayer = nil
+
 	for _, player in ipairs(players) do
 		if player.Character then
 			local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -270,8 +288,17 @@ function BrainrotSystem.OnBrainrotDeath(uniqueId)
 					playerData.totalKills = (playerData.totalKills or 0) + 1
 					player:SetAttribute("PlayerData", playerData)
 				end
+				killingPlayer = player
 				break
 			end
+		end
+	end
+
+	-- Try to collect brainrot with killing player
+	if killingPlayer then
+		local collector = LoadBrainrotCollector()
+		if collector then
+			collector.TryCollect(killingPlayer, brainrot.tier, brainrot.displayName)
 		end
 	end
 

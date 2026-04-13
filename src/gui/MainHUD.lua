@@ -3,22 +3,17 @@
 	Client-side main HUD module for "Survive a Helicopter for Brainrots"
 
 	Features:
-	- Real-time fuel gauge with color transitions (green -> yellow -> red)
-	- Speed indicator showing current helicopter speed
-	- Engine and fuel canister counts with icons
-	- Wave counter display
-	- Phase indicator with phase-specific colors
-	- Timer for current phase
-	- Kill counter for brainrots defeated
-	- Mini notifications for pickups (animated pop-ins)
-	- Clean, modern gaming UI with rounded corners and gradients
-	- Tweened animations for state transitions
+	- Minimal fuel bar (top left) with color-coded status
+	- BrainBucks balance display (top right, gold colored)
+	- Wave counter
+	- Engine/fuel canister count
+	- Clean, minimal design that doesn't block gameplay
+	- Always visible at start
 
 	This module is initialized by HUDClient.client.lua
 ]]
 
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local MainHUD = {}
@@ -27,30 +22,21 @@ local MainHUD = {}
 local UI_CONFIG = {
 	PRIMARY_COLOR = Color3.fromRGB(20, 20, 28),
 	SECONDARY_COLOR = Color3.fromRGB(30, 30, 40),
-	ACCENT_COLOR = Color3.fromRGB(100, 200, 255),
 	TEXT_COLOR = Color3.fromRGB(255, 255, 255),
-	BORDER_COLOR = Color3.fromRGB(60, 60, 80),
+	ACCENT_COLOR = Color3.fromRGB(100, 200, 255),
 	DANGER_COLOR = Color3.fromRGB(255, 60, 60),
 	WARNING_COLOR = Color3.fromRGB(255, 180, 60),
 	SUCCESS_COLOR = Color3.fromRGB(60, 255, 100),
+	GOLD_COLOR = Color3.fromRGB(255, 215, 0),
 }
 
--- Phase colors
-local PHASE_COLORS = {
-	LOBBY = Color3.fromRGB(100, 100, 200),
-	BUILD = Color3.fromRGB(100, 200, 100),
-	SURVIVE = Color3.fromRGB(255, 100, 100),
-	ROUNDEND = Color3.fromRGB(200, 100, 255),
-}
-
-local mainFrame = nil
-local playerGui = nil
+local screenGui = nil
 local hudElements = {}
 
 --[[
 	Creates a rounded corner frame with styling
 	@param parent: GuiObject - parent to add frame to
-	@param cornerRadius: number - radius for rounded corners (default 8)
+	@param cornerRadius: number - radius for rounded corners
 	@return: Frame
 ]]
 local function CreateRoundedFrame(parent, cornerRadius)
@@ -87,103 +73,30 @@ local function CreateLabel(parent, text, textSize)
 end
 
 --[[
-	Creates the main HUD frame (top-left corner)
-	@return: Frame - the main HUD container
+	Creates the main HUD (minimal and non-intrusive)
+	@return: ScreenGui - the main HUD screen gui
 ]]
 local function CreateMainHUD()
-	local screen = playerGui
+	-- Create the ScreenGui container
+	local screen = Instance.new("ScreenGui")
+	screen.Name = "MainHUD"
+	screen.ResetOnSpawn = false
+	screen.Enabled = true  -- Starts visible
 
-	-- Main container (top-left corner)
-	local main = Instance.new("Frame")
-	main.Name = "MainHUD"
-	main.BackgroundTransparency = 1
-	main.BorderSizePixel = 0
-	main.Size = UDim2.new(0, 350, 0, 400)
-	main.Position = UDim2.new(0, 15, 0, 15)
-	main.Parent = screen
-
-	-- Title bar with game info
-	local titleBar = CreateRoundedFrame(main, 10)
-	titleBar.BackgroundColor3 = UI_CONFIG.ACCENT_COLOR
-	titleBar.Size = UDim2.new(1, 0, 0, 40)
-	titleBar.Position = UDim2.new(0, 0, 0, 0)
-
-	local titleText = CreateLabel(titleBar, "HELICOPTER STATS", 14)
-	titleText.Font = Enum.Font.GothamBold
-	titleText.TextXAlignment = Enum.TextXAlignment.Left
-	titleText.Size = UDim2.new(1, -10, 1, 0)
-	titleText.Position = UDim2.new(0, 8, 0, 0)
-
-	-- Phase indicator (top-right info)
-	local phaseContainer = CreateRoundedFrame(main, 8)
-	phaseContainer.Size = UDim2.new(1, 0, 0, 35)
-	phaseContainer.Position = UDim2.new(0, 0, 0, 45)
-
-	local phaseLabel = CreateLabel(phaseContainer, "BUILD PHASE", 13)
-	phaseLabel.Font = Enum.Font.GothamBold
-	phaseLabel.TextXAlignment = Enum.TextXAlignment.Center
-	phaseLabel.Size = UDim2.new(0.5, -5, 1, 0)
-	phaseLabel.Position = UDim2.new(0, 8, 0, 0)
-	hudElements.phaseLabel = phaseLabel
-
-	local phaseTimer = CreateLabel(phaseContainer, "0:00", 13)
-	phaseTimer.Font = Enum.Font.GothamBold
-	phaseTimer.TextXAlignment = Enum.TextXAlignment.Center
-	phaseTimer.Size = UDim2.new(0.5, -5, 1, 0)
-	phaseTimer.Position = UDim2.new(0.5, 5, 0, 0)
-	hudElements.phaseTimer = phaseTimer
-
-	-- Wave counter
-	local waveContainer = CreateRoundedFrame(main, 8)
-	waveContainer.Size = UDim2.new(1, 0, 0, 35)
-	waveContainer.Position = UDim2.new(0, 0, 0, 85)
-
-	local waveLabel = CreateLabel(waveContainer, "WAVE", 11)
-	waveLabel.TextXAlignment = Enum.TextXAlignment.Left
-	waveLabel.Size = UDim2.new(0.3, -5, 1, 0)
-	waveLabel.Position = UDim2.new(0, 8, 0, 0)
-
-	local waveNumber = CreateLabel(waveContainer, "1", 20)
-	waveNumber.Font = Enum.Font.GothamBold
-	waveNumber.TextXAlignment = Enum.TextXAlignment.Center
-	waveNumber.Size = UDim2.new(0.7, -8, 1, 0)
-	waveNumber.Position = UDim2.new(0.3, 5, 0, 0)
-	hudElements.waveNumber = waveNumber
-
-	-- Speed indicator
-	local speedContainer = CreateRoundedFrame(main, 8)
-	speedContainer.Size = UDim2.new(1, 0, 0, 35)
-	speedContainer.Position = UDim2.new(0, 0, 0, 125)
-
-	local speedLabel = CreateLabel(speedContainer, "SPEED", 11)
-	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-	speedLabel.Size = UDim2.new(0.3, -5, 1, 0)
-	speedLabel.Position = UDim2.new(0, 8, 0, 0)
-
-	local speedValue = CreateLabel(speedContainer, "20", 20)
-	speedValue.Font = Enum.Font.GothamBold
-	speedValue.TextXAlignment = Enum.TextXAlignment.Center
-	speedValue.Size = UDim2.new(0.7, -8, 1, 0)
-	speedValue.Position = UDim2.new(0.3, 5, 0, 0)
-	hudElements.speedValue = speedValue
-
-	-- Fuel gauge
-	local fuelLabel = CreateLabel(main, "FUEL", 11)
-	fuelLabel.TextXAlignment = Enum.TextXAlignment.Left
-	fuelLabel.Size = UDim2.new(0.5, 0, 0, 20)
-	fuelLabel.Position = UDim2.new(0, 0, 0, 165)
-
-	local fuelPercentLabel = CreateLabel(main, "100%", 11)
-	fuelPercentLabel.TextXAlignment = Enum.TextXAlignment.Right
-	fuelPercentLabel.Size = UDim2.new(0.5, 0, 0, 20)
-	fuelPercentLabel.Position = UDim2.new(0.5, 0, 0, 165)
-	hudElements.fuelPercentLabel = fuelPercentLabel
+	-- Top-left corner: Fuel bar and stats
+	local leftPanel = Instance.new("Frame")
+	leftPanel.Name = "LeftPanel"
+	leftPanel.BackgroundTransparency = 1
+	leftPanel.BorderSizePixel = 0
+	leftPanel.Size = UDim2.new(0, 200, 0, 180)
+	leftPanel.Position = UDim2.new(0, 10, 0, 10)
+	leftPanel.Parent = screen
 
 	-- Fuel bar background
-	local fuelBarBg = CreateRoundedFrame(main, 6)
+	local fuelBarBg = CreateRoundedFrame(leftPanel, 6)
 	fuelBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-	fuelBarBg.Size = UDim2.new(1, 0, 0, 20)
-	fuelBarBg.Position = UDim2.new(0, 0, 0, 188)
+	fuelBarBg.Size = UDim2.new(1, 0, 0, 12)
+	fuelBarBg.Position = UDim2.new(0, 0, 0, 0)
 
 	-- Fuel bar fill
 	local fuelBar = CreateRoundedFrame(fuelBarBg, 6)
@@ -192,80 +105,66 @@ local function CreateMainHUD()
 	fuelBar.Position = UDim2.new(0, 0, 0, 0)
 	hudElements.fuelBar = fuelBar
 
-	-- Engines and fuel canisters info
-	local equipmentContainer = CreateRoundedFrame(main, 8)
-	equipmentContainer.Size = UDim2.new(1, 0, 0, 55)
-	equipmentContainer.Position = UDim2.new(0, 0, 0, 215)
+	-- Fuel percentage text
+	local fuelPercentLabel = CreateLabel(leftPanel, "100%", 12)
+	fuelPercentLabel.Font = Enum.Font.GothamBold
+	fuelPercentLabel.TextXAlignment = Enum.TextXAlignment.Right
+	fuelPercentLabel.Size = UDim2.new(1, 0, 0, 16)
+	fuelPercentLabel.Position = UDim2.new(0, 0, 0, 14)
+	hudElements.fuelPercentLabel = fuelPercentLabel
 
-	-- Engines row
-	local engineIcon = CreateLabel(equipmentContainer, "⚙", 20)
-	engineIcon.TextXAlignment = Enum.TextXAlignment.Center
-	engineIcon.Size = UDim2.new(0, 30, 0.5, 0)
-	engineIcon.Position = UDim2.new(0, 8, 0, 3)
+	-- Wave counter
+	local waveLabel = CreateLabel(leftPanel, "Wave: 1", 11)
+	waveLabel.TextXAlignment = Enum.TextXAlignment.Left
+	waveLabel.Size = UDim2.new(1, 0, 0, 18)
+	waveLabel.Position = UDim2.new(0, 0, 0, 35)
+	hudElements.waveLabel = waveLabel
 
-	local engineLabel = CreateLabel(equipmentContainer, "Engines:", 11)
-	engineLabel.TextXAlignment = Enum.TextXAlignment.Left
-	engineLabel.Size = UDim2.new(0.5, -40, 0.5, 0)
-	engineLabel.Position = UDim2.new(0, 40, 0, 3)
+	-- Engine count
+	local engineCountLabel = CreateLabel(leftPanel, "Engines: 0", 11)
+	engineCountLabel.TextXAlignment = Enum.TextXAlignment.Left
+	engineCountLabel.Size = UDim2.new(1, 0, 0, 18)
+	engineCountLabel.Position = UDim2.new(0, 0, 0, 55)
+	hudElements.engineCountLabel = engineCountLabel
 
-	local engineCount = CreateLabel(equipmentContainer, "0", 13)
-	engineCount.Font = Enum.Font.GothamBold
-	engineCount.TextXAlignment = Enum.TextXAlignment.Right
-	engineCount.Size = UDim2.new(0.5, -8, 0.5, 0)
-	engineCount.Position = UDim2.new(0.5, -8, 0, 3)
-	hudElements.engineCount = engineCount
+	-- Fuel canister count
+	local canisterCountLabel = CreateLabel(leftPanel, "Canisters: 0", 11)
+	canisterCountLabel.TextXAlignment = Enum.TextXAlignment.Left
+	canisterCountLabel.Size = UDim2.new(1, 0, 0, 18)
+	canisterCountLabel.Position = UDim2.new(0, 0, 0, 75)
+	hudElements.canisterCountLabel = canisterCountLabel
 
-	-- Fuel canisters row
-	local canisterIcon = CreateLabel(equipmentContainer, "🛢", 20)
-	canisterIcon.TextXAlignment = Enum.TextXAlignment.Center
-	canisterIcon.Size = UDim2.new(0, 30, 0.5, 0)
-	canisterIcon.Position = UDim2.new(0, 8, 0.5, 3)
+	-- Top-right corner: BrainBucks balance
+	local rightPanel = Instance.new("Frame")
+	rightPanel.Name = "RightPanel"
+	rightPanel.BackgroundColor3 = UI_CONFIG.SECONDARY_COLOR
+	rightPanel.BorderSizePixel = 0
+	rightPanel.Size = UDim2.new(0, 140, 0, 50)
+	rightPanel.Position = UDim2.new(1, -150, 0, 10)
+	rightPanel.Parent = screen
 
-	local canisterLabel = CreateLabel(equipmentContainer, "Canisters:", 11)
-	canisterLabel.TextXAlignment = Enum.TextXAlignment.Left
-	canisterLabel.Size = UDim2.new(0.5, -40, 0.5, 0)
-	canisterLabel.Position = UDim2.new(0, 40, 0.5, 3)
+	local rightCorner = Instance.new("UICorner")
+	rightCorner.CornerRadius = UDim.new(0, 6)
+	rightCorner.Parent = rightPanel
 
-	local canisterCount = CreateLabel(equipmentContainer, "0", 13)
-	canisterCount.Font = Enum.Font.GothamBold
-	canisterCount.TextXAlignment = Enum.TextXAlignment.Right
-	canisterCount.Size = UDim2.new(0.5, -8, 0.5, 0)
-	canisterCount.Position = UDim2.new(0.5, -8, 0.5, 3)
-	hudElements.canisterCount = canisterCount
+	local brainBucksLabel = CreateLabel(rightPanel, "BrainBucks", 9)
+	brainBucksLabel.TextXAlignment = Enum.TextXAlignment.Center
+	brainBucksLabel.Size = UDim2.new(1, 0, 0, 14)
+	brainBucksLabel.Position = UDim2.new(0, 0, 0, 3)
 
-	-- Kill counter (bottom of HUD)
-	local killContainer = CreateRoundedFrame(main, 8)
-	killContainer.BackgroundColor3 = UI_CONFIG.DANGER_COLOR
-	killContainer.Size = UDim2.new(1, 0, 0, 45)
-	killContainer.Position = UDim2.new(0, 0, 0, 275)
+	local brainBucksValue = CreateLabel(rightPanel, "0", 24)
+	brainBucksValue.Font = Enum.Font.GothamBold
+	brainBucksValue.TextColor3 = UI_CONFIG.GOLD_COLOR
+	brainBucksValue.TextXAlignment = Enum.TextXAlignment.Center
+	brainBucksValue.Size = UDim2.new(1, 0, 0, 30)
+	brainBucksValue.Position = UDim2.new(0, 0, 0, 18)
+	hudElements.brainBucksValue = brainBucksValue
 
-	local killLabel = CreateLabel(killContainer, "BRAINROTS ELIMINATED", 10)
-	killLabel.TextXAlignment = Enum.TextXAlignment.Center
-	killLabel.Size = UDim2.new(1, -10, 0.4, 0)
-	killLabel.Position = UDim2.new(0, 5, 0, 2)
-
-	local killCount = CreateLabel(killContainer, "0", 24)
-	killCount.Font = Enum.Font.GothamBold
-	killCount.TextXAlignment = Enum.TextXAlignment.Center
-	killCount.Size = UDim2.new(1, -10, 0.6, 0)
-	killCount.Position = UDim2.new(0, 5, 0.4, 0)
-	hudElements.killCount = killCount
-
-	-- Notification container (for pickup notifications)
-	local notificationContainer = Instance.new("Frame")
-	notificationContainer.Name = "NotificationContainer"
-	notificationContainer.BackgroundTransparency = 1
-	notificationContainer.BorderSizePixel = 0
-	notificationContainer.Size = UDim2.new(0, 350, 0, 200)
-	notificationContainer.Position = UDim2.new(0, 0, 0, 330)
-	notificationContainer.Parent = main
-	hudElements.notificationContainer = notificationContainer
-
-	return main
+	return screen
 end
 
 --[[
-	Updates the fuel gauge with current fuel value
+	Updates the fuel gauge with current fuel value and color
 	@param currentFuel: number - current fuel amount
 	@param maxFuel: number - maximum fuel capacity
 ]]
@@ -278,14 +177,12 @@ function MainHUD:UpdateFuel(currentFuel, maxFuel)
 	-- Color based on fuel level: green -> yellow -> red
 	local fuelColor
 	if fuelPercent > 0.5 then
-		-- Green to yellow: interpolate between green and yellow
-		fuelColor = Color3.fromRGB(60, 255, 100):Lerp(Color3.fromRGB(255, 180, 60), 1 - ((fuelPercent - 0.5) / 0.5))
+		fuelColor = UI_CONFIG.SUCCESS_COLOR:Lerp(UI_CONFIG.WARNING_COLOR, 1 - ((fuelPercent - 0.5) / 0.5))
 	else
-		-- Yellow to red: interpolate between yellow and red
-		fuelColor = Color3.fromRGB(255, 180, 60):Lerp(Color3.fromRGB(255, 60, 60), 1 - (fuelPercent / 0.5))
+		fuelColor = UI_CONFIG.WARNING_COLOR:Lerp(UI_CONFIG.DANGER_COLOR, 1 - (fuelPercent / 0.5))
 	end
 
-	-- Animate fuel bar width and color
+	-- Animate fuel bar
 	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local tween = TweenService:Create(hudElements.fuelBar, tweenInfo, {
 		Size = UDim2.new(fuelPercent, 0, 1, 0),
@@ -293,17 +190,17 @@ function MainHUD:UpdateFuel(currentFuel, maxFuel)
 	})
 	tween:Play()
 
-	-- Update fuel percentage label
+	-- Update percentage label
 	hudElements.fuelPercentLabel.Text = fuelPercentInt .. "%"
 end
 
 --[[
-	Updates the speed indicator
-	@param speed: number - current helicopter speed
+	Updates the wave counter display
+	@param waveNumber: number - current wave number
 ]]
-function MainHUD:UpdateSpeed(speed)
-	if hudElements.speedValue then
-		hudElements.speedValue.Text = tostring(math.floor(speed))
+function MainHUD:UpdateWave(waveNumber)
+	if hudElements.waveLabel then
+		hudElements.waveLabel.Text = "Wave: " .. tostring(waveNumber)
 	end
 end
 
@@ -312,8 +209,8 @@ end
 	@param engineCount: number - number of engines installed
 ]]
 function MainHUD:UpdateEngineCount(engineCount)
-	if hudElements.engineCount then
-		hudElements.engineCount.Text = tostring(engineCount)
+	if hudElements.engineCountLabel then
+		hudElements.engineCountLabel.Text = "Engines: " .. tostring(engineCount)
 	end
 end
 
@@ -322,127 +219,29 @@ end
 	@param canisterCount: number - number of fuel canisters installed
 ]]
 function MainHUD:UpdateCanisterCount(canisterCount)
-	if hudElements.canisterCount then
-		hudElements.canisterCount.Text = tostring(canisterCount)
+	if hudElements.canisterCountLabel then
+		hudElements.canisterCountLabel.Text = "Canisters: " .. tostring(canisterCount)
 	end
 end
 
 --[[
-	Updates the wave counter
-	@param waveNumber: number - current wave number
+	Updates the BrainBucks balance display
+	@param brainBucks: number - current BrainBucks balance
 ]]
-function MainHUD:UpdateWave(waveNumber)
-	if hudElements.waveNumber then
-		hudElements.waveNumber.Text = tostring(waveNumber)
+function MainHUD:UpdateBrainBucks(brainBucks)
+	if hudElements.brainBucksValue then
+		hudElements.brainBucksValue.Text = tostring(brainBucks)
 	end
-end
-
---[[
-	Updates the phase indicator with color and text
-	@param phase: string - current phase ("LOBBY", "BUILD", "SURVIVE", "ROUNDEND")
-	@param parent: GuiObject - parent frame containing the phase label
-]]
-function MainHUD:UpdatePhase(phase, parent)
-	if not hudElements.phaseLabel then return end
-
-	local phaseText = phase == "SURVIVE" and "SURVIVE!" or (phase or "UNKNOWN")
-	local phaseColor = PHASE_COLORS[phase] or UI_CONFIG.ACCENT_COLOR
-
-	hudElements.phaseLabel.Text = phaseText
-
-	-- Animate phase label color change
-	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(hudElements.phaseLabel.Parent, tweenInfo, {
-		BackgroundColor3 = phaseColor
-	})
-	tween:Play()
-end
-
---[[
-	Updates the phase timer
-	@param timeRemaining: number - seconds remaining in phase
-]]
-function MainHUD:UpdatePhaseTimer(timeRemaining)
-	if not hudElements.phaseTimer then return end
-
-	local minutes = math.floor(timeRemaining / 60)
-	local seconds = math.floor(timeRemaining % 60)
-	hudElements.phaseTimer.Text = string.format("%d:%02d", minutes, seconds)
-end
-
---[[
-	Updates the kill counter
-	@param killCount: number - number of brainrots eliminated
-]]
-function MainHUD:UpdateKillCount(killCount)
-	if hudElements.killCount then
-		-- Animate kill count with scale
-		local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		local tween = TweenService:Create(hudElements.killCount, tweenInfo, {
-			TextScaled = true
-		})
-		tween:Play()
-
-		hudElements.killCount.Text = tostring(killCount)
-	end
-end
-
---[[
-	Shows a pickup notification (animated pop-in)
-	@param itemType: string - "engine" or "fuelCanister"
-	@param quantity: number - how many were picked up (default 1)
-]]
-function MainHUD:ShowPickupNotification(itemType, quantity)
-	if not hudElements.notificationContainer then return end
-
-	local notif = CreateRoundedFrame(hudElements.notificationContainer, 8)
-	notif.Size = UDim2.new(1, -10, 0, 40)
-	notif.Position = UDim2.new(0.5, -155, 0, #hudElements.notificationContainer:GetChildren() * 45)
-
-	-- Color based on item type
-	local itemColor = (itemType == "engine") and UI_CONFIG.SUCCESS_COLOR or UI_CONFIG.WARNING_COLOR
-	notif.BackgroundColor3 = itemColor
-
-	local text = (itemType == "engine" and "⚙ " or "🛢 ")
-	text = text .. "+" .. (quantity or 1) .. " " .. (itemType == "engine" and "Engine" or "Fuel Canister")
-
-	local label = CreateLabel(notif, text, 13)
-	label.Font = Enum.Font.GothamBold
-	label.TextXAlignment = Enum.TextXAlignment.Center
-	label.Size = UDim2.new(1, 0, 1, 0)
-	label.Position = UDim2.new(0, 0, 0, 0)
-
-	-- Animate in
-	notif.Size = UDim2.new(1, -10, 0, 0)
-	notif.BackgroundTransparency = 1
-	local tweenIn = TweenService:Create(notif, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.new(1, -10, 0, 40),
-		BackgroundTransparency = 0
-	})
-	tweenIn:Play()
-
-	-- Wait and animate out
-	task.delay(3, function()
-		local tweenOut = TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Size = UDim2.new(1, -10, 0, 0),
-			BackgroundTransparency = 1
-		})
-		tweenOut:Play()
-		tweenOut.Completed:Connect(function()
-			notif:Destroy()
-		end)
-	end)
 end
 
 --[[
 	Initializes the main HUD
-	@param playerGui: ScreenGui - the PlayerGui to attach to
+	@return: ScreenGui - the created ScreenGui object
 ]]
-function MainHUD:Init(playerGui_)
-	playerGui = playerGui_
-	mainFrame = CreateMainHUD()
-	print("MainHUD initialized")
-	return mainFrame
+function MainHUD:Init()
+	screenGui = CreateMainHUD()
+	print("[MainHUD] Initialized")
+	return screenGui
 end
 
 return MainHUD

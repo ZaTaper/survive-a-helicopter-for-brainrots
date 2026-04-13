@@ -8,8 +8,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InventorySystem = {}
 
 -- Configuration
-local CONFIG = require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("GameConfig"))
-local PlayerData = require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("PlayerData"))
+local CONFIG = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local PlayerData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PlayerData"))
 
 -- Stores player inventory in memory during session
 -- Format: { [player] = playerDataTable }

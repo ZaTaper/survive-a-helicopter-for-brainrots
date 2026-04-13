@@ -1,0 +1,397 @@
+================================================================================
+MUSIC SYSTEM - QUICK START CHECKLIST
+================================================================================
+
+PHASE 1: FILE VERIFICATION
+================================================================================
+
+[ ] src/shared/MusicData.lua exists
+    - Contains track definitions
+    - Defines default volume and crossfade duration
+
+[ ] src/gui/MusicSettings.lua exists
+    - Contains UI module for music controls
+    - Builds settings panel with volume slider
+
+[ ] src/client/MusicClient.client.lua exists
+    - Main music controller script
+    - Auto-starts on game load
+    - Handles all music switching and transitions
+
+
+PHASE 2: AUDIO FILE SETUP
+================================================================================
+
+[ ] Gather 6 audio files:
+    [ ] Lobby music (2-3 minutes, relaxing)
+    [ ] Build music (2-3 minutes, upbeat)
+    [ ] Survival music (2-3 minutes, intense)
+    [ ] Boss music (2-3 minutes, epic) - Optional
+    [ ] Death sound (0.5-3 seconds, dramatic)
+    [ ] Victory music (2-3 minutes, celebratory)
+
+[ ] Upload all audio to Roblox Creator Dashboard
+    [ ] Create account if needed
+    [ ] Navigate to Creator Dashboard > Develop > Your Game
+    [ ] Click "Audio" section
+    [ ] Upload each audio file
+    [ ] Note down all Asset IDs
+
+[ ] Audio files are MP3, WAV, or OGG format
+
+
+PHASE 3: UPDATE CONFIGURATION
+================================================================================
+
+[ ] Open src/shared/MusicData.lua
+
+[ ] Replace placeholder IDs (search for "rbxassetid://0"):
+
+    [ ] Lobby soundId: "rbxassetid://YOUR_LOBBY_ID"
+    [ ] BuildPhase soundId: "rbxassetid://YOUR_BUILD_ID"
+    [ ] SurvivePhase soundId: "rbxassetid://YOUR_SURVIVE_ID"
+    [ ] BossWave soundId: "rbxassetid://YOUR_BOSS_ID"
+    [ ] Death soundId: "rbxassetid://YOUR_DEATH_ID"
+    [ ] Victory soundId: "rbxassetid://YOUR_VICTORY_ID"
+
+[ ] Verify all IDs have correct format:
+    - Start with "rbxassetid://"
+    - Followed by numbers
+    - No extra characters
+
+[ ] Verify looped settings:
+    [ ] Lobby: looped = true
+    [ ] BuildPhase: looped = true
+    [ ] SurvivePhase: looped = true
+    [ ] BossWave: looped = true
+    [ ] Death: looped = false (should NOT loop)
+    [ ] Victory: looped = true
+
+[ ] Save MusicData.lua
+
+
+PHASE 4: TESTING
+================================================================================
+
+[ ] Open the game in Roblox Studio
+
+[ ] Check Output Console for these messages:
+    [ ] "[MusicClient] Music client script loading..."
+    [ ] "[MusicClient] Initializing music client..."
+    [ ] "[MusicClient] Pre-loading sound objects..."
+    [ ] "[MusicClient] Sounds pre-loaded"
+    [ ] "[MusicClient] Game state events connected"
+
+[ ] Look for any ERROR messages in console
+    - If found, check audio IDs in MusicData.lua
+
+[ ] Listen for music on startup:
+    [ ] Lobby music plays when game starts
+
+[ ] Test Music Settings UI:
+    [ ] Look for 🎵 icon in top-right corner
+    [ ] Click icon - settings panel opens
+    [ ] Volume slider moves
+    [ ] Mute button works
+    [ ] Current track name displays
+    [ ] Close button works
+
+[ ] Test phase transitions:
+    [ ] Start a game to proceed to Build phase
+    [ ] Verify music changes to build theme
+    [ ] Proceed to Survive phase
+    [ ] Verify music changes to survival theme
+    [ ] Complete round or die
+    [ ] Verify victory/death music plays
+
+[ ] Test volume control:
+    [ ] Move slider all the way down - very quiet
+    [ ] Move slider to middle - normal volume
+    [ ] Move slider all the way up - loud
+    [ ] Click Mute - all music silent
+    [ ] Click Unmute - music resumes
+
+[ ] Test crossfades:
+    [ ] Watch Output for crossfade messages
+    [ ] Listen for smooth transition between tracks
+    [ ] No harsh cuts or gaps
+    [ ] Verify transition takes ~1.5 seconds
+
+
+PHASE 5: VOLUME BALANCING (Optional but Recommended)
+================================================================================
+
+[ ] Test each track individually:
+    [ ] Lobby - does it feel relaxing?
+    [ ] BuildPhase - is it upbeat and energizing?
+    [ ] SurvivePhase - is it intense?
+    [ ] BossWave - is it epic?
+    [ ] Death - is it dramatically sad?
+    [ ] Victory - is it celebratory?
+
+[ ] Adjust volumes if needed in MusicData.lua:
+    - If track too quiet: increase volume value
+    - If track too loud: decrease volume value
+    - Range: 0 to 1 (0.5-0.7 is typical for BGM)
+
+[ ] Re-test after adjustments:
+    [ ] Lobby volume balanced
+    [ ] BuildPhase volume balanced
+    [ ] SurvivePhase volume balanced
+    [ ] All tracks feel consistent
+
+[ ] Compare crossfade timing:
+    [ ] Does 1.5 seconds feel right?
+    [ ] If too abrupt: increase CROSSFADE_DURATION in MusicData.lua
+    [ ] If too long: decrease CROSSFADE_DURATION in MusicData.lua
+
+
+PHASE 6: INTEGRATION CHECK
+================================================================================
+
+[ ] Verify no conflicts with existing systems:
+    [ ] HUD still displays correctly
+    [ ] Shop system works
+    [ ] Inventory system works
+    [ ] Player spawning works
+    [ ] Game loop functions normally
+
+[ ] Check server-side GameLoop.server.lua:
+    [ ] NO changes needed
+    [ ] RemoteEvents are already firing correctly
+    [ ] GameStateChanged event fires on phase change
+    [ ] PlayerDied event fires on player death
+    [ ] RoundEnded event fires on round completion
+
+[ ] Music system auto-detects state:
+    [ ] No manual event binding needed
+    [ ] No server modifications required
+    [ ] Works with existing infrastructure
+
+
+PHASE 7: PRODUCTION READINESS
+================================================================================
+
+[ ] Code quality check:
+    [ ] No console errors
+    [ ] No console warnings
+    [ ] All debug logs are informational only
+    [ ] No memory leaks
+
+[ ] Performance check:
+    [ ] Game runs smoothly
+    [ ] No framerate drops when music switches
+    [ ] Sound objects pre-load without delay
+    [ ] Crossfades don't cause lag
+
+[ ] User experience check:
+    [ ] Music enhances gameplay
+    [ ] UI is non-intrusive
+    [ ] Volume control works intuitively
+    [ ] Mute button is easy to find
+
+[ ] Final audio check:
+    [ ] All 6 tracks play correctly
+    [ ] No tracks are missing or silent
+    [ ] No distortion or audio artifacts
+    [ ] Death sound plays when player dies
+    [ ] Victory sound plays at round end
+
+
+PHASE 8: DOCUMENTATION
+================================================================================
+
+[ ] Read MUSIC_SYSTEM_GUIDE.md - Full documentation
+    [ ] Understand how the system works
+    [ ] Learn customization options
+    [ ] Check troubleshooting section if issues
+
+[ ] Read MUSIC_AUDIO_SETUP.md - Audio file setup
+    [ ] Understand audio requirements
+    [ ] Know where to find free music
+    [ ] Review audio testing section
+
+[ ] Read MUSIC_CODE_EXAMPLES.md - Developer examples
+    [ ] See code examples for common tasks
+    [ ] Learn how to control music from scripts
+    [ ] Understand callbacks and events
+
+[ ] Keep MUSIC_SYSTEM_CHECKLIST.txt - This file!
+    [ ] Use for quick reference
+    [ ] Share with team members
+    [ ] Return here if troubleshooting
+
+
+PHASE 9: TROUBLESHOOTING (If Issues Occur)
+================================================================================
+
+NO MUSIC PLAYING:
+[ ] Check that sound IDs are NOT "rbxassetid://0" (placeholder)
+[ ] Verify Asset IDs from Roblox Creator Dashboard are correct
+[ ] Check Output console for error messages
+[ ] Ensure audio files were successfully uploaded to Roblox
+[ ] Try waiting 1-2 minutes for Roblox to process files
+[ ] Try a different audio file to rule out format issues
+
+MUSIC CUTS OFF:
+[ ] Verify looped = true is set for all background music tracks
+[ ] Check that Death sound has looped = false
+[ ] Look for errors in Output console
+[ ] Ensure sound object Parent is still set correctly
+
+SETTINGS UI NOT SHOWING:
+[ ] Check that MusicSettings.lua is in src/gui/ folder
+[ ] Verify MusicClient.client.lua can find the module
+[ ] Look for errors in Output console
+[ ] Try restarting the game
+
+CROSSFADE SOUNDS WEIRD:
+[ ] Increase CROSSFADE_DURATION in MusicData.lua
+[ ] Ensure track volumes are balanced
+[ ] Check that audio files themselves aren't distorted
+
+WRONG MUSIC PLAYING:
+[ ] Verify phase detection in Output console
+[ ] Check that track keys match MusicData.lua exactly
+[ ] Look for phase change messages in console
+
+VOLUME SLIDER NOT WORKING:
+[ ] Check browser/studio input handling
+[ ] Verify slider UI elements are visible
+[ ] Look for errors in Output console
+[ ] Try clicking slider at different positions
+
+
+PHASE 10: OPTIONAL ENHANCEMENTS
+================================================================================
+
+[ ] Customize UI colors to match game theme
+    File: src/gui/MusicSettings.lua
+    Look for: Color3.fromRGB() calls
+
+[ ] Adjust default volume starting point
+    File: src/shared/MusicData.lua
+    Setting: MusicData.DEFAULT_VOLUME = 0.6
+
+[ ] Change crossfade timing
+    File: src/shared/MusicData.lua
+    Setting: MusicData.CROSSFADE_DURATION = 1.5
+
+[ ] Add fade-in effect on startup
+    File: src/client/MusicClient.client.lua
+    Modify: Initial PlayTrack call
+
+[ ] Implement wave-based difficulty music
+    File: src/client/MusicClient.client.lua
+    Add: Wave number detection and boss wave trigger
+
+[ ] Add ambient sound layers (wind, rain)
+    File: Create new module in src/client/
+    Feature: Layer additional non-music sounds
+
+
+PHASE 11: DEPLOYMENT
+================================================================================
+
+[ ] Make final backup of audio IDs
+    - Copy all rbxassetid:// values
+    - Save in a safe location
+    - Document any custom settings
+
+[ ] Commit code to version control
+    [ ] All three files committed
+    [ ] Documentation files included
+    [ ] .gitignore properly configured
+
+[ ] Document any custom modifications
+    [ ] List all changes made
+    [ ] Note any additional audio IDs
+    [ ] Record volume adjustments made
+
+[ ] Test one final time in Studio
+    [ ] Start new game
+    [ ] Play through all phases
+    [ ] Verify music works correctly
+
+[ ] Ready for publication!
+    [ ] System is production-ready
+    [ ] All files in place
+    [ ] Audio correctly configured
+    [ ] Documentation complete
+
+
+IMPORTANT REMINDERS
+================================================================================
+
+DO:
+✓ Replace ALL "rbxassetid://0" placeholder IDs
+✓ Use correct audio format (MP3, WAV, OGG)
+✓ Set looped = true for background music
+✓ Set looped = false for sound effects
+✓ Test all 6 tracks during each game phase
+✓ Verify crossfades are smooth
+✓ Keep debug logs enabled while testing
+✓ Document any custom changes you make
+
+DON'T:
+✗ Leave placeholder IDs in MusicData.lua
+✗ Use unsupported audio formats
+✗ Forget to upload files to Roblox Creator Dashboard
+✗ Ignore console error messages
+✗ Skip testing phase transitions
+✗ Modify GameLoop.server.lua (not needed!)
+✗ Remove pre-loading code (it optimizes performance)
+✗ Trust code from random sources without review
+
+
+CONTACT & SUPPORT
+================================================================================
+
+If you encounter issues:
+
+1. Check the Output console for [MusicClient] debug messages
+2. Review MUSIC_SYSTEM_GUIDE.md troubleshooting section
+3. Verify audio IDs are correct in Roblox Creator Dashboard
+4. Check MUSIC_CODE_EXAMPLES.md for usage examples
+5. Review this checklist for missed setup steps
+
+Files for reference:
+- MUSIC_SYSTEM_GUIDE.md ........... Full documentation
+- MUSIC_AUDIO_SETUP.md ........... Audio file setup
+- MUSIC_CODE_EXAMPLES.md ......... Code examples
+- MUSIC_SYSTEM_CHECKLIST.txt ..... This file
+
+
+COMPLETION TRACKING
+================================================================================
+
+Date Started: ________________
+Date Completed: ________________
+
+Total Checklist Items: 100+
+Items Completed: ______ / 100+
+Percentage Complete: ______ %
+
+All systems GO? [ ] YES [ ] NO
+
+If NO, list remaining issues:
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+
+Notes:
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+
+Sign-off: _________________________ Date: ____________________
+
+================================================================================
+END OF CHECKLIST
+================================================================================
+
+Music System Installation Complete!
+Your game now has professional background music with phase-based switching,
+smooth crossfades, and user-friendly volume controls.
+
+Enjoy your enhanced gaming experience!

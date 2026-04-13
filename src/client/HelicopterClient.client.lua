@@ -1,36 +1,38 @@
 -- HelicopterClient.client.lua
 -- Client-side helicopter controls and interactions
--- Handles WASD movement, tilt animation, particle effects, and UI updates
+-- Handles E to build, Space to fly, WASD to move while flying
+-- Shows HUD with fuel, speed, engines
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
 
--- Get references to remote events
-local RemoteEvents = game.ReplicatedStorage:WaitForChild("HelicopterRemotes")
+-- Get references to remote events and modules
+local RemoteEvents = ReplicatedStorage:WaitForChild("HelicopterRemotes")
 local BuildHelicopterEvent = RemoteEvents:WaitForChild("BuildHelicopter")
 local AddEngineEvent = RemoteEvents:WaitForChild("AddEngine")
 local AddFuelCanisterEvent = RemoteEvents:WaitForChild("AddFuelCanister")
 local ActivateHelicopterEvent = RemoteEvents:WaitForChild("ActivateHelicopter")
+local DeactivateHelicopterEvent = RemoteEvents:WaitForChild("DeactivateHelicopter")
 local GetHelicopterStatsEvent = RemoteEvents:WaitForChild("GetHelicopterStats")
 
--- Game config
-local GameConfig = require(game.ReplicatedStorage.shared.GameConfig)
-local HelicopterData = require(game.ReplicatedStorage.shared.HelicopterData)
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local HelicopterData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HelicopterData"))
 
 -- Helicopter state
 local helicopterState = {
 	isActive = false,
-	engines = 0,
-	fuelCanisters = 0,
-	currentFuel = GameConfig.Helicopter.BASE_FUEL,
-	maxFuel = GameConfig.Helicopter.BASE_FUEL,
-	speed = GameConfig.Helicopter.BASE_SPEED,
-	drainRate = GameConfig.Helicopter.FUEL_DRAIN_RATE,
+	hasHelicopter = false,
+	engines = GameConfig.StarterHelicopter.ENGINES,
+	fuelCanisters = GameConfig.StarterHelicopter.FUEL_CANISTERS,
+	currentFuel = GameConfig.StarterHelicopter.MAX_FUEL,
+	maxFuel = GameConfig.StarterHelicopter.MAX_FUEL,
+	speed = GameConfig.StarterHelicopter.SPEED,
+	drainRate = 0,
 }
 
 -- Movement input handling
@@ -41,7 +43,7 @@ local movementInput = {
 	right = false,
 }
 
--- Create UI elements for displaying helicopter stats
+-- Create UI HUD for displaying helicopter stats
 local function CreateUI()
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "HelicopterUI"
@@ -78,106 +80,110 @@ local function CreateUI()
 	-- Status text
 	local statusText = Instance.new("TextLabel")
 	statusText.Name = "StatusText"
-	statusText.Size = UDim2.new(0, 200, 0, 100)
+	statusText.Size = UDim2.new(0, 200, 0, 120)
 	statusText.Position = UDim2.new(0, 20, 0, 60)
 	statusText.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 	statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	statusText.TextScaled = true
+	statusText.TextScaled = false
+	statusText.TextSize = 12
 	statusText.Font = Enum.Font.Gotham
 	statusText.TextWrapped = true
 	statusText.BorderSizePixel = 2
 	statusText.Parent = screenGui
 
+	-- Controls hint
+	local controlsText = Instance.new("TextLabel")
+	controlsText.Name = "ControlsText"
+	controlsText.Size = UDim2.new(0, 300, 0, 80)
+	controlsText.Position = UDim2.new(0, 20, 1, -100)
+	controlsText.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	controlsText.TextColor3 = Color3.fromRGB(200, 200, 200)
+	controlsText.TextScaled = false
+	controlsText.TextSize = 11
+	controlsText.Font = Enum.Font.Gotham
+	controlsText.TextWrapped = true
+	controlsText.BorderSizePixel = 1
+	controlsText.Text = "E: Build\nR: Engine\nF: Canister\nSpace: Fly\nWASD: Move"
+	controlsText.Parent = screenGui
+
 	return {
 		screenGui = screenGui,
 		fuelBar = fuelBar,
-		fuelBarBg = fuelBarBg,
 		fuelLabel = fuelLabel,
 		statusText = statusText,
 	}
 end
 
--- Update UI with current stats
 local UI = CreateUI()
 
+-- Update UI with current stats
 local function UpdateUI()
-	-- Update fuel bar
-	local fuelPercentage = helicopterState.currentFuel / helicopterState.maxFuel
+	local fuelPercentage = math.min(1, helicopterState.currentFuel / math.max(1, helicopterState.maxFuel))
 	UI.fuelBar.Size = UDim2.new(fuelPercentage, 0, 1, 0)
 	UI.fuelLabel.Text = string.format("Fuel: %.0f/%.0f", helicopterState.currentFuel, helicopterState.maxFuel)
 
-	-- Update status text
+	-- Determine status based on helicopter state
+	local status = "READY"
+	if not helicopterState.hasHelicopter then
+		status = "NO HELICOPTER"
+	elseif helicopterState.isActive then
+		status = "FLYING"
+	end
+
 	local statusMessage = string.format(
-		"Engines: %d\nFuel Canisters: %d\nSpeed: %.1f\nActive: %s",
+		"Engines: %d\nCanisters: %d\nSpeed: %.0f\nStatus: %s",
 		helicopterState.engines,
 		helicopterState.fuelCanisters,
 		helicopterState.speed,
-		helicopterState.isActive and "Yes" or "No"
+		status
 	)
 	UI.statusText.Text = statusMessage
 end
 
--- Create particle effects for helicopter exhaust
-local function CreateExhaustParticles(helicopterModel)
-	if not helicopterModel then
-		return
-	end
-
-	local basePlatform = helicopterModel:FindFirstChild("BasePlatform")
-	if not basePlatform then
-		return
-	end
-
-	-- Create particle emitter attachment
-	local attachment = Instance.new("Attachment")
-	attachment.Parent = basePlatform
-
-	-- Create particle emitter
-	local particleEmitter = Instance.new("ParticleEmitter")
-	particleEmitter.Texture = "rbxasset://textures/Particles/smoke_main.dds"
-	particleEmitter.Rate = 30
-	particleEmitter.Lifetime = NumberRange.new(1, 2)
-	particleEmitter.Speed = NumberRange.new(5, 10)
-	particleEmitter.Color = ColorSequence.new(Color3.fromRGB(100, 100, 100))
-	particleEmitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.3),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	particleEmitter.Parent = attachment
-
-	return particleEmitter
-end
-
--- Build helicopter
+-- Build helicopter (E key)
 local function BuildHelicopter()
 	BuildHelicopterEvent:FireServer()
-	wait(0.5)
+	task.wait(0.5)
 	SyncStats()
 end
 
--- Add engine
+-- Add engine upgrade (R key)
 local function AddEngine()
 	AddEngineEvent:FireServer()
-	wait(0.5)
+	task.wait(0.5)
 	SyncStats()
 end
 
--- Add fuel canister
+-- Add fuel canister upgrade (F key)
 local function AddFuelCanister()
 	AddFuelCanisterEvent:FireServer()
-	wait(0.5)
+	task.wait(0.5)
 	SyncStats()
 end
 
--- Activate helicopter
+-- Activate helicopter for flight (Space key)
 local function ActivateHelicopter()
 	ActivateHelicopterEvent:FireServer()
 	helicopterState.isActive = true
 end
 
--- Sync helicopter stats from server
+-- Deactivate helicopter
+local function DeactivateHelicopter()
+	DeactivateHelicopterEvent:FireServer()
+	helicopterState.isActive = false
+end
+
+-- Sync helicopter stats from server (MUST be defined before being called)
 local function SyncStats()
-	local stats = GetHelicopterStatsEvent:InvokeServer()
+	local ok, stats = pcall(function()
+		return GetHelicopterStatsEvent:InvokeServer()
+	end)
+
+	if not ok then
+		warn("Error syncing helicopter stats: " .. tostring(stats))
+		return
+	end
+
 	if stats then
 		helicopterState.engines = stats.engines
 		helicopterState.fuelCanisters = stats.fuelCanisters
@@ -185,6 +191,14 @@ local function SyncStats()
 		helicopterState.maxFuel = stats.maxFuel
 		helicopterState.speed = stats.speed
 		helicopterState.drainRate = stats.drainRate
+		helicopterState.isActive = stats.isActive or false
+		helicopterState.hasHelicopter = stats.hasHelicopter or false
+
+		-- Check if out of fuel
+		if helicopterState.currentFuel <= 0 and helicopterState.isActive then
+			DeactivateHelicopter()
+		end
+
 		UpdateUI()
 	end
 end
@@ -195,7 +209,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 
-	-- Movement keys
 	if input.KeyCode == Enum.KeyCode.W then
 		movementInput.forward = true
 	elseif input.KeyCode == Enum.KeyCode.S then
@@ -204,17 +217,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		movementInput.left = true
 	elseif input.KeyCode == Enum.KeyCode.D then
 		movementInput.right = true
-	end
-
-	-- Helicopter build shortcuts
-	if input.KeyCode == Enum.KeyCode.E then
+	elseif input.KeyCode == Enum.KeyCode.E then
 		BuildHelicopter()
 	elseif input.KeyCode == Enum.KeyCode.R then
 		AddEngine()
 	elseif input.KeyCode == Enum.KeyCode.F then
 		AddFuelCanister()
 	elseif input.KeyCode == Enum.KeyCode.Space then
-		ActivateHelicopter()
+		if not helicopterState.isActive then
+			ActivateHelicopter()
+		else
+			DeactivateHelicopter()
+		end
 	end
 end)
 
@@ -239,24 +253,24 @@ local function UpdateMovement()
 		return
 	end
 
-	local basePlatform = helicopterModel:FindFirstChild("BasePlatform")
-	if not basePlatform then
+	local fuselage = helicopterModel:FindFirstChild("Fuselage")
+	if not fuselage then
 		return
 	end
 
 	-- Calculate movement direction
 	local moveDirection = Vector3.new(0, 0, 0)
 	if movementInput.forward then
-		moveDirection = moveDirection + basePlatform.CFrame.LookVector
+		moveDirection = moveDirection + fuselage.CFrame.LookVector
 	end
 	if movementInput.backward then
-		moveDirection = moveDirection - basePlatform.CFrame.LookVector
+		moveDirection = moveDirection - fuselage.CFrame.LookVector
 	end
 	if movementInput.left then
-		moveDirection = moveDirection - basePlatform.CFrame.RightVector
+		moveDirection = moveDirection - fuselage.CFrame.RightVector
 	end
 	if movementInput.right then
-		moveDirection = moveDirection + basePlatform.CFrame.RightVector
+		moveDirection = moveDirection + fuselage.CFrame.RightVector
 	end
 
 	-- Normalize movement direction
@@ -277,20 +291,20 @@ local function UpdateMovement()
 
 	-- Apply movement at helicopter speed
 	local deltaTime = RunService.Heartbeat:Wait()
-	local movementCFrame = basePlatform.CFrame + (moveDirection * helicopterState.speed * deltaTime)
+	local movementCFrame = fuselage.CFrame + (moveDirection * helicopterState.speed * deltaTime)
 
-	-- Apply tilt to the helicopter
-	basePlatform.CFrame = movementCFrame * CFrame.Angles(
+	-- Apply tilt to the entire helicopter
+	fuselage.CFrame = movementCFrame * CFrame.Angles(
 		math.rad(lastMovementTilt.X),
 		0,
 		math.rad(lastMovementTilt.Z)
 	)
 end
 
--- Periodically sync stats from server (every 0.5 seconds)
+-- Periodically sync stats from server
 spawn(function()
 	while true do
-		wait(0.5)
+		task.wait(0.5)
 		SyncStats()
 	end
 end)
@@ -303,8 +317,16 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+-- Handle character respawn
+player.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+	helicopterState.isActive = false
+	task.wait(0.1)
+	SyncStats()
+end)
+
 -- Initial setup
-wait(0.1)
+task.wait(0.1)
 SyncStats()
 UpdateUI()
 

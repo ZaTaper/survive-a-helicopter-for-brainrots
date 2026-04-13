@@ -7,7 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
-local InventorySystem = require(game.ServerScriptService:WaitForChild("InventorySystem"))
+local InventorySystem = require(script.Parent:WaitForChild("InventorySystem"))
 local PlayerData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PlayerData"))
 
 local ToolPickups = {}

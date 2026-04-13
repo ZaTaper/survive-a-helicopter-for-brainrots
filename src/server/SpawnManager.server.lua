@@ -2,8 +2,10 @@
 -- Manages player spawning, brainrot spawning, and tool placement
 -- Handles spawn points, cooldowns, and visual/audio effects
 
-local GameConfig = require(game.ServerScriptService:WaitForChild("GameConfig"))
-local MapAssets = require(game.ServerStorage:WaitForChild("MapAssets"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local MapAssets = require(ServerStorage:WaitForChild("Storage"):WaitForChild("MapAssets"))
 
 local SpawnManager = {}
 

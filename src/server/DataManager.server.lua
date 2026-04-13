@@ -9,8 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataManager = {}
 
 -- Configuration
-local CONFIG = require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("GameConfig"))
-local PlayerData = require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("PlayerData"))
+local CONFIG = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local PlayerData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PlayerData"))
 
 -- Data store settings
 local DATA_STORE_NAME = "PlayerData_v1"

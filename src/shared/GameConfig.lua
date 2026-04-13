@@ -17,34 +17,57 @@ GameConfig.Helicopter = {
 	FUEL_PER_CANISTER = 50,    -- Additional fuel per canister
 	MAX_FUEL_CANISTERS = 20,   -- Maximum fuel canisters
 	FUEL_DRAIN_RATE = 1,       -- Fuel consumed per second at base speed
-	FUEL_DRAIN_MULTIPLIER = 0.1, -- Extra fuel drain per engine (more speed = more drain)
+	FUEL_DRAIN_MULTIPLIER = 0.1, -- Extra fuel drain per engine
 	HEIGHT = 50,               -- Flying height
 }
 
--- Brainrot rarity tiers (worst to best)
+-- Starter helicopter settings (free default helicopter for new players)
+GameConfig.StarterHelicopter = {
+	ENGINES = 1,
+	FUEL_CANISTERS = 2,
+	SPEED = 35,              -- BASE_SPEED + 1 engine
+	MAX_FUEL = 200,          -- BASE_FUEL + 2 canisters
+}
+
+-- Brainrot rarity tiers (worst to best) with money rewards
 GameConfig.BrainrotTiers = {
-	{name = "Common",    color = Color3.fromRGB(180, 180, 180), damage = 10,  speed = 12, health = 50,   spawnWeight = 40},
-	{name = "Uncommon",  color = Color3.fromRGB(50, 200, 50),   damage = 15,  speed = 14, health = 80,   spawnWeight = 25},
-	{name = "Rare",      color = Color3.fromRGB(50, 100, 255),  damage = 25,  speed = 16, health = 120,  spawnWeight = 15},
-	{name = "Epic",      color = Color3.fromRGB(160, 50, 255),  damage = 35,  speed = 18, health = 200,  spawnWeight = 10},
-	{name = "Mythic",    color = Color3.fromRGB(255, 50, 50),   damage = 50,  speed = 22, health = 350,  spawnWeight = 5},
-	{name = "Secret",    color = Color3.fromRGB(255, 215, 0),   damage = 70,  speed = 26, health = 500,  spawnWeight = 3},
-	{name = "Celestial", color = Color3.fromRGB(0, 255, 255),   damage = 100, speed = 30, health = 800,  spawnWeight = 1.5},
-	{name = "OP",        color = Color3.fromRGB(255, 0, 128),   damage = 150, speed = 35, health = 1500, spawnWeight = 0.5},
+	{name = "Common",    color = Color3.fromRGB(180, 180, 180), damage = 10,  speed = 12, health = 50,   spawnWeight = 40,  money = 10},
+	{name = "Uncommon",  color = Color3.fromRGB(50, 200, 50),   damage = 15,  speed = 14, health = 80,   spawnWeight = 25,  money = 25},
+	{name = "Rare",      color = Color3.fromRGB(50, 100, 255),  damage = 25,  speed = 16, health = 120,  spawnWeight = 15,  money = 50},
+	{name = "Epic",      color = Color3.fromRGB(160, 50, 255),  damage = 35,  speed = 18, health = 200,  spawnWeight = 10,  money = 100},
+	{name = "Mythic",    color = Color3.fromRGB(255, 50, 50),   damage = 50,  speed = 22, health = 350,  spawnWeight = 5,   money = 250},
+	{name = "Secret",    color = Color3.fromRGB(255, 215, 0),   damage = 70,  speed = 26, health = 500,  spawnWeight = 3,   money = 500},
+	{name = "Celestial", color = Color3.fromRGB(0, 255, 255),   damage = 100, speed = 30, health = 800,  spawnWeight = 1.5, money = 1000},
+	{name = "OP",        color = Color3.fromRGB(255, 0, 128),   damage = 150, speed = 35, health = 1500, spawnWeight = 0.5, money = 5000},
+}
+
+-- Shop prices for materials
+GameConfig.Shop = {
+	ENGINE_PRICE = 100,
+	FUEL_CANISTER_PRICE = 75,
+	ROTOR_UPGRADE_PRICE = 200,
+	BODY_UPGRADE_PRICE = 150,
+}
+
+-- Currency settings
+GameConfig.Currency = {
+	START_MONEY = 50,
+	CURRENCY_NAME = "BrainBucks",
 }
 
 -- Player settings
 GameConfig.Player = {
 	START_HEALTH = 100,
 	RESPAWN_TIME = 5,
-	BUILD_TIME = 60, -- Seconds to build helicopter before brainrots attack
+	BUILD_TIME = 60,
 }
 
 -- Map settings
 GameConfig.Map = {
-	SIZE = 500,           -- Map radius
-	SPAWN_RADIUS = 400,   -- Brainrot spawn radius
-	SAFE_ZONE_RADIUS = 50, -- Safe zone around spawn
+	SIZE = 500,
+	SPAWN_RADIUS = 400,
+	SAFE_ZONE_RADIUS = 50,
+	WATER_HEIGHT = -10,
 }
 
 -- Wave settings

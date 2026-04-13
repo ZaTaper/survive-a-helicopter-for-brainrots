@@ -1,71 +1,86 @@
 -- HelicopterSystem.server.lua
 -- Server-side helicopter logic and management
 -- Handles construction, fuel tracking, speed calculations, and flight mechanics
+-- Implements starter helicopter system with upgrade tracking and death mechanics
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
-local GameConfig = require(game.ServerScriptService.Parent.shared.GameConfig)
-local HelicopterData = require(game.ServerScriptService.Parent.shared.HelicopterData)
-local HelicopterModel = require(game.ServerScriptService.Parent.storage.HelicopterModel)
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local HelicopterData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HelicopterData"))
+local HelicopterModel = require(ServerStorage:WaitForChild("Storage"):WaitForChild("HelicopterModel"))
 
 -- Player helicopter data tracking
--- Structure: {
---   userId = {
---     engines = number,
---     fuelCanisters = number,
---     currentFuel = number,
---     maxFuel = number,
---     speed = number,
---     helicopterModel = Instance,
---     isActive = boolean,
---     character = Instance,
---   }
--- }
 local playerHelicopterData = {}
 
 -- Create RemoteEvents for client-server communication
-local RemoteEvents = Instance.new("Folder")
-RemoteEvents.Name = "HelicopterRemotes"
-RemoteEvents.Parent = game.ReplicatedStorage
+local function CreateRemoteEvents()
+	local RemoteEvents = Instance.new("Folder")
+	RemoteEvents.Name = "HelicopterRemotes"
+	RemoteEvents.Parent = ReplicatedStorage
 
-local BuildHelicopterEvent = Instance.new("RemoteEvent")
-BuildHelicopterEvent.Name = "BuildHelicopter"
-BuildHelicopterEvent.Parent = RemoteEvents
+	local BuildHelicopterEvent = Instance.new("RemoteEvent")
+	BuildHelicopterEvent.Name = "BuildHelicopter"
+	BuildHelicopterEvent.Parent = RemoteEvents
 
-local AddEngineEvent = Instance.new("RemoteEvent")
-AddEngineEvent.Name = "AddEngine"
-AddEngineEvent.Parent = RemoteEvents
+	local AddEngineEvent = Instance.new("RemoteEvent")
+	AddEngineEvent.Name = "AddEngine"
+	AddEngineEvent.Parent = RemoteEvents
 
-local AddFuelCanisterEvent = Instance.new("RemoteEvent")
-AddFuelCanisterEvent.Name = "AddFuelCanister"
-AddFuelCanisterEvent.Parent = RemoteEvents
+	local AddFuelCanisterEvent = Instance.new("RemoteEvent")
+	AddFuelCanisterEvent.Name = "AddFuelCanister"
+	AddFuelCanisterEvent.Parent = RemoteEvents
 
-local ActivateHelicopterEvent = Instance.new("RemoteEvent")
-ActivateHelicopterEvent.Name = "ActivateHelicopter"
-ActivateHelicopterEvent.Parent = RemoteEvents
+	local ActivateHelicopterEvent = Instance.new("RemoteEvent")
+	ActivateHelicopterEvent.Name = "ActivateHelicopter"
+	ActivateHelicopterEvent.Parent = RemoteEvents
 
-local GetHelicopterStatsEvent = Instance.new("RemoteFunction")
-GetHelicopterStatsEvent.Name = "GetHelicopterStats"
-GetHelicopterStatsEvent.Parent = RemoteEvents
+	local DeactivateHelicopterEvent = Instance.new("RemoteEvent")
+	DeactivateHelicopterEvent.Name = "DeactivateHelicopter"
+	DeactivateHelicopterEvent.Parent = RemoteEvents
 
--- Initialize player helicopter data
-local function InitializePlayerHelicopter(player)
-	local userId = player.UserId
-	playerHelicopterData[userId] = {
-		engines = 0,
-		fuelCanisters = 0,
-		currentFuel = GameConfig.Helicopter.BASE_FUEL,
-		maxFuel = GameConfig.Helicopter.BASE_FUEL,
-		speed = GameConfig.Helicopter.BASE_SPEED,
-		drainRate = GameConfig.Helicopter.FUEL_DRAIN_RATE,
-		helicopterModel = nil,
-		isActive = false,
-		character = player.Character,
+	local GetHelicopterStatsEvent = Instance.new("RemoteFunction")
+	GetHelicopterStatsEvent.Name = "GetHelicopterStats"
+	GetHelicopterStatsEvent.Parent = RemoteEvents
+
+	return {
+		folder = RemoteEvents,
+		buildHelicopter = BuildHelicopterEvent,
+		addEngine = AddEngineEvent,
+		addFuelCanister = AddFuelCanisterEvent,
+		activateHelicopter = ActivateHelicopterEvent,
+		deactivateHelicopter = DeactivateHelicopterEvent,
+		getHelicopterStats = GetHelicopterStatsEvent,
 	}
 end
 
--- Build the helicopter (create initial model and set to default state)
+local RemoteEvents = CreateRemoteEvents()
+
+-- Initialize player helicopter data with starter helicopter
+local function InitializePlayerHelicopter(player)
+	local userId = player.UserId
+	playerHelicopterData[userId] = {
+		engines = GameConfig.StarterHelicopter.ENGINES,
+		fuelCanisters = GameConfig.StarterHelicopter.FUEL_CANISTERS,
+		currentFuel = GameConfig.StarterHelicopter.MAX_FUEL,
+		maxFuel = GameConfig.StarterHelicopter.MAX_FUEL,
+		speed = GameConfig.StarterHelicopter.SPEED,
+		drainRate = HelicopterData.CalculateFuelDrainRate(
+			GameConfig.StarterHelicopter.ENGINES,
+			GameConfig.StarterHelicopter.FUEL_CANISTERS
+		),
+		helicopterModel = nil,
+		isActive = false,
+		character = player.Character,
+		isStarterHelicopter = true,
+		hasEverUpgraded = false,
+	}
+	print("Player " .. player.Name .. " initialized with starter helicopter")
+end
+
+-- Build the helicopter (create initial model)
 local function BuildHelicopter(player)
 	local userId = player.UserId
 	if not playerHelicopterData[userId] then
@@ -74,7 +89,6 @@ local function BuildHelicopter(player)
 
 	local data = playerHelicopterData[userId]
 
-	-- Create helicopter model in the player's character
 	if data.character then
 		local helicopterFolder = data.character:FindFirstChild("Helicopter")
 		if helicopterFolder then
@@ -82,13 +96,12 @@ local function BuildHelicopter(player)
 		end
 
 		data.helicopterModel = HelicopterModel.CreateHelicopter(data.character, data.engines, data.fuelCanisters)
-
-		-- Start rotor animation
-		HelicopterModel.AnimateRotor(data.helicopterModel, 720) -- 720 degrees per second (2 rotations)
+		HelicopterModel.AnimateRotor(data.helicopterModel, 720)
 	end
+	print("Player " .. player.Name .. " built helicopter")
 end
 
--- Add an engine to the helicopter
+-- Add an engine to the helicopter (upgrade)
 local function AddEngine(player)
 	local userId = player.UserId
 	if not playerHelicopterData[userId] then
@@ -97,19 +110,17 @@ local function AddEngine(player)
 
 	local data = playerHelicopterData[userId]
 
-	-- Check maximum engines limit
 	if data.engines >= GameConfig.Helicopter.MAX_ENGINES then
-		print("Player " .. player.Name .. " reached maximum engines: " .. GameConfig.Helicopter.MAX_ENGINES)
 		return false
 	end
 
 	data.engines = data.engines + 1
+	data.isStarterHelicopter = false
+	data.hasEverUpgraded = true
 
-	-- Recalculate stats
 	data.speed = HelicopterData.CalculateSpeed(data.engines)
 	data.drainRate = HelicopterData.CalculateFuelDrainRate(data.engines, data.fuelCanisters)
 
-	-- Update visual model
 	if data.helicopterModel then
 		HelicopterModel.UpdateHelicopter(data.helicopterModel, data.engines, data.fuelCanisters)
 	end
@@ -118,7 +129,7 @@ local function AddEngine(player)
 	return true
 end
 
--- Add a fuel canister to the helicopter
+-- Add a fuel canister to the helicopter (upgrade)
 local function AddFuelCanister(player)
 	local userId = player.UserId
 	if not playerHelicopterData[userId] then
@@ -127,20 +138,18 @@ local function AddFuelCanister(player)
 
 	local data = playerHelicopterData[userId]
 
-	-- Check maximum fuel canisters limit
 	if data.fuelCanisters >= GameConfig.Helicopter.MAX_FUEL_CANISTERS then
-		print("Player " .. player.Name .. " reached maximum fuel canisters: " .. GameConfig.Helicopter.MAX_FUEL_CANISTERS)
 		return false
 	end
 
 	data.fuelCanisters = data.fuelCanisters + 1
+	data.isStarterHelicopter = false
+	data.hasEverUpgraded = true
 
-	-- Recalculate stats
 	data.maxFuel = HelicopterData.CalculateMaxFuel(data.fuelCanisters)
-	data.currentFuel = math.min(data.currentFuel, data.maxFuel) -- Don't exceed new max
+	data.currentFuel = math.min(data.currentFuel, data.maxFuel)
 	data.drainRate = HelicopterData.CalculateFuelDrainRate(data.engines, data.fuelCanisters)
 
-	-- Update visual model
 	if data.helicopterModel then
 		HelicopterModel.UpdateHelicopter(data.helicopterModel, data.engines, data.fuelCanisters)
 	end
@@ -158,10 +167,17 @@ local function ActivateHelicopter(player)
 
 	local data = playerHelicopterData[userId]
 	data.isActive = true
-	print("Player " .. player.Name .. " activated helicopter. Speed: " .. data.speed .. ", Current Fuel: " .. data.currentFuel)
 end
 
--- Get current helicopter stats (RemoteFunction)
+-- Deactivate helicopter
+local function DeactivateHelicopter(player)
+	local userId = player.UserId
+	if playerHelicopterData[userId] then
+		playerHelicopterData[userId].isActive = false
+	end
+end
+
+-- Get current helicopter stats
 local function GetHelicopterStats(player)
 	local userId = player.UserId
 	if not playerHelicopterData[userId] then
@@ -169,54 +185,76 @@ local function GetHelicopterStats(player)
 	end
 
 	local data = playerHelicopterData[userId]
-	return HelicopterData.GetHelicopterStats(data)
+	local stats = HelicopterData.GetHelicopterStats(data)
+	-- Include isActive in stats so client knows real state
+	stats.isActive = data.isActive
+	-- Include whether helicopter model exists
+	stats.hasHelicopter = data.helicopterModel ~= nil
+	return stats
 end
 
--- Reset fuel when player dies
-local function OnPlayerDied(player)
+-- Handle player death/respawn
+local function OnPlayerRespawn(player)
 	local userId = player.UserId
-	if playerHelicopterData[userId] then
-		playerHelicopterData[userId].currentFuel = GameConfig.Helicopter.BASE_FUEL
-		playerHelicopterData[userId].isActive = false
-		print("Player " .. player.Name .. " died. Fuel reset to " .. GameConfig.Helicopter.BASE_FUEL)
+	if not playerHelicopterData[userId] then
+		InitializePlayerHelicopter(player)
+		return
 	end
+
+	local data = playerHelicopterData[userId]
+
+	if data.isStarterHelicopter then
+		data.engines = GameConfig.StarterHelicopter.ENGINES
+		data.fuelCanisters = GameConfig.StarterHelicopter.FUEL_CANISTERS
+		data.maxFuel = GameConfig.StarterHelicopter.MAX_FUEL
+		data.speed = GameConfig.StarterHelicopter.SPEED
+	else
+		data.maxFuel = HelicopterData.CalculateMaxFuel(data.fuelCanisters)
+		data.speed = HelicopterData.CalculateSpeed(data.engines)
+	end
+
+	data.currentFuel = data.maxFuel
+	data.isActive = false
+	data.drainRate = HelicopterData.CalculateFuelDrainRate(data.engines, data.fuelCanisters)
 end
 
--- Update fuel drain every frame (when helicopter is active)
+-- Update fuel drain every heartbeat
 local function UpdateFuelDrain()
+	local deltaTime = RunService.Heartbeat:Wait()
+
 	for userId, data in pairs(playerHelicopterData) do
 		if data.isActive and data.currentFuel > 0 then
-			-- Drain fuel based on delta time
-			local deltaTime = RunService.Heartbeat:Wait()
 			data.currentFuel = math.max(0, data.currentFuel - (data.drainRate * deltaTime))
 
-			-- Deactivate helicopter if out of fuel
 			if data.currentFuel <= 0 then
 				data.isActive = false
-				print("Player with userId " .. userId .. " ran out of fuel")
 			end
 		end
 	end
 end
 
 -- Connect RemoteEvent handlers
-BuildHelicopterEvent.OnServerEvent:Connect(function(player)
+RemoteEvents.buildHelicopter.OnServerEvent:Connect(function(player)
 	BuildHelicopter(player)
 end)
 
-AddEngineEvent.OnServerEvent:Connect(function(player)
+RemoteEvents.addEngine.OnServerEvent:Connect(function(player)
 	AddEngine(player)
 end)
 
-AddFuelCanisterEvent.OnServerEvent:Connect(function(player)
+RemoteEvents.addFuelCanister.OnServerEvent:Connect(function(player)
 	AddFuelCanister(player)
 end)
 
-ActivateHelicopterEvent.OnServerEvent:Connect(function(player)
+RemoteEvents.activateHelicopter.OnServerEvent:Connect(function(player)
 	ActivateHelicopter(player)
 end)
 
-GetHelicopterStatsEvent.OnServerInvoke = function(player)
+RemoteEvents.deactivateHelicopter.OnServerEvent:Connect(function(player)
+	DeactivateHelicopter(player)
+end)
+
+RemoteEvents.getHelicopterStats.OnServerInvoke = function(player)
 	return GetHelicopterStats(player)
 end
 
@@ -236,8 +274,7 @@ Players.PlayerAdded:Connect(function(player)
 		local userId = player.UserId
 		if playerHelicopterData[userId] then
 			playerHelicopterData[userId].character = character
-			-- Reset fuel on spawn
-			OnPlayerDied(player)
+			OnPlayerRespawn(player)
 		end
 	end)
 end)

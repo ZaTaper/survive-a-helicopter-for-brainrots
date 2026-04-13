@@ -1,14 +1,13 @@
 --[[
 	HUDClient.client.lua
-	Main client script that initializes and manages all GUI elements for "Survive a Helicopter for Brainrots"
+	Main client orchestrator for all GUI elements in "Survive a Helicopter for Brainrots"
 
 	Responsibilities:
-	- Initializes MainHUD, Leaderboard, and DeathScreen modules
-	- Listens to RemoteEvents for state updates from server
-	- Updates HUD elements in real-time
-	- Manages GUI transitions between game phases
-	- Handles keyboard shortcuts (Tab for leaderboard)
-	- Syncs player data and helicopter stats
+	- Loads all GUI modules from PlayerGui.GUI
+	- Initializes MainHUD (visible by default), everything else hidden
+	- Handles keyboard shortcuts: B=shop, C=collection, Tab=leaderboard
+	- Listens to RemoteEvents for HUD updates
+	- Updates fuel bar and stats via RunService.Heartbeat
 
 	Run frequency: Once when the game loads
 ]]
@@ -18,16 +17,27 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Import modules
-local MainHUD = require(script.Parent.Parent.gui.MainHUD)
-local Leaderboard = require(script.Parent.Parent.gui.Leaderboard)
-local DeathScreen = require(script.Parent.Parent.gui.DeathScreen)
-local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
-local HelicopterData = require(ReplicatedStorage:WaitForChild("HelicopterData"))
-
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local mouse = player:GetMouse()
+
+-- Create the GUI folder if it doesn't exist, otherwise wait for it
+local guiFolder = playerGui:FindFirstChild("GUI")
+if not guiFolder then
+	guiFolder = Instance.new("Folder")
+	guiFolder.Name = "GUI"
+	guiFolder.Parent = playerGui
+end
+
+-- Load GUI modules
+local MainHUD = require(guiFolder:WaitForChild("MainHUD"))
+local DeathScreen = require(guiFolder:WaitForChild("DeathScreen"))
+local CollectionGUI = require(guiFolder:WaitForChild("CollectionGUI"))
+local Leaderboard = require(guiFolder:WaitForChild("Leaderboard"))
+local MusicSettings = require(guiFolder:WaitForChild("MusicSettings"))
+
+-- Shared modules
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local HelicopterData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HelicopterData"))
 
 -- State tracking
 local gameState = {
@@ -35,65 +45,61 @@ local gameState = {
 	currentWave = 1,
 	currentFuel = GameConfig.Helicopter.BASE_FUEL,
 	maxFuel = GameConfig.Helicopter.BASE_FUEL,
-	currentSpeed = GameConfig.Helicopter.BASE_SPEED,
 	engineCount = 0,
 	canisterCount = 0,
-	killCount = 0,
-	wavesSurvived = 0,
+	brainBucks = 0,
 	isDead = false,
 }
 
-local playerStats = {} -- Store all players' stats for leaderboard
-local phaseStartTime = 0
-local phaseEndTime = 0
+local playerStats = {}  -- Store all players' stats for leaderboard
 
--- Create events folder if it doesn't exist
-if not ReplicatedStorage:FindFirstChild("HUDEvents") then
-	local folder = Instance.new("Folder")
-	folder.Name = "HUDEvents"
-	folder.Parent = ReplicatedStorage
-end
-
-local HUDEvents = ReplicatedStorage:WaitForChild("HUDEvents")
-
--- Create remote events for communication
+--[[
+	Creates or gets RemoteEvents in HUDEvents folder
+]]
 local function GetOrCreateRemoteEvent(name)
-	if not HUDEvents:FindFirstChild(name) then
+	local hudEvents = ReplicatedStorage:FindFirstChild("HUDEvents")
+	if not hudEvents then
+		hudEvents = Instance.new("Folder")
+		hudEvents.Name = "HUDEvents"
+		hudEvents.Parent = ReplicatedStorage
+	end
+
+	if not hudEvents:FindFirstChild(name) then
 		local event = Instance.new("RemoteEvent")
 		event.Name = name
-		event.Parent = HUDEvents
+		event.Parent = hudEvents
 	end
-	return HUDEvents:WaitForChild(name)
+	return hudEvents:WaitForChild(name)
 end
-
--- Events for server->client communication
-local updateFuelEvent = GetOrCreateRemoteEvent("UpdateFuel")
-local updateSpeedEvent = GetOrCreateRemoteEvent("UpdateSpeed")
-local updateInventoryEvent = GetOrCreateRemoteEvent("UpdateInventory")
-local updateKillCountEvent = GetOrCreateRemoteEvent("UpdateKillCount")
-local updateWaveEvent = GetOrCreateRemoteEvent("UpdateWave")
-local updatePhaseEvent = GetOrCreateRemoteEvent("UpdatePhase")
-local updateLeaderboardEvent = GetOrCreateRemoteEvent("UpdateLeaderboard")
-local playerDiedEvent = GetOrCreateRemoteEvent("PlayerDied")
-local pickupNotificationEvent = GetOrCreateRemoteEvent("PickupNotification")
 
 --[[
 	Initializes all HUD modules
 ]]
 local function InitializeHUD()
-	print("[HUDClient] Initializing HUD systems...")
+	print("[HUDClient] Initializing all HUD modules...")
 
-	-- Initialize MainHUD
-	MainHUD:Init(playerGui)
-	print("[HUDClient] MainHUD initialized")
+	-- Create ScreenGui parent objects by initializing modules
+	local mainHudGui = MainHUD:Init()
+	mainHudGui.Parent = playerGui
+	mainHudGui.Enabled = true  -- MainHUD starts visible
 
-	-- Initialize Leaderboard
-	Leaderboard:Init(playerGui)
-	print("[HUDClient] Leaderboard initialized")
+	local deathScreenGui = DeathScreen:Init()
+	deathScreenGui.Parent = playerGui
+	deathScreenGui.Enabled = false
 
-	-- Initialize DeathScreen
-	DeathScreen:Init(playerGui)
-	print("[HUDClient] DeathScreen initialized")
+	local collectionGui = CollectionGUI:Init()
+	collectionGui.Parent = playerGui
+	collectionGui.Enabled = false
+
+	local leaderboardGui = Leaderboard:Init()
+	leaderboardGui.Parent = playerGui
+	leaderboardGui.Enabled = false
+
+	local musicGui = MusicSettings:Init()
+	musicGui.Parent = playerGui
+	musicGui.Enabled = true
+
+	print("[HUDClient] All HUD modules initialized")
 end
 
 --[[
@@ -102,38 +108,45 @@ end
 local function SetupInputHandlers()
 	print("[HUDClient] Setting up input handlers...")
 
-	-- Tab key to toggle leaderboard
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then return end
 
 		if input.KeyCode == Enum.KeyCode.Tab then
+			-- Tab toggles leaderboard
 			Leaderboard:Toggle()
-		elseif input.KeyCode == Enum.KeyCode.Space and gameState.isDead then
-			-- Space to respawn (handled by DeathScreen)
+		elseif input.KeyCode == Enum.KeyCode.C then
+			-- C toggles collection GUI
+			CollectionGUI:Toggle()
+		elseif input.KeyCode == Enum.KeyCode.B then
+			-- B would toggle shop (not implemented in this set)
+			print("[HUDClient] Shop toggle not yet implemented")
 		end
 	end)
 end
 
 --[[
-	Connects to remote events for state updates from the server
+	Connects to RemoteEvents for state updates
 ]]
 local function ConnectToRemoteEvents()
 	print("[HUDClient] Connecting to remote events...")
 
 	-- Update fuel
+	local updateFuelEvent = GetOrCreateRemoteEvent("UpdateFuel")
 	updateFuelEvent.OnClientEvent:Connect(function(currentFuel, maxFuel)
 		gameState.currentFuel = currentFuel
 		gameState.maxFuel = maxFuel
 		MainHUD:UpdateFuel(currentFuel, maxFuel)
 	end)
 
-	-- Update speed
-	updateSpeedEvent.OnClientEvent:Connect(function(speed)
-		gameState.currentSpeed = speed
-		MainHUD:UpdateSpeed(speed)
+	-- Update wave
+	local updateWaveEvent = GetOrCreateRemoteEvent("UpdateWave")
+	updateWaveEvent.OnClientEvent:Connect(function(waveNumber)
+		gameState.currentWave = waveNumber
+		MainHUD:UpdateWave(waveNumber)
 	end)
 
 	-- Update inventory (engines and canisters)
+	local updateInventoryEvent = GetOrCreateRemoteEvent("UpdateInventory")
 	updateInventoryEvent.OnClientEvent:Connect(function(engines, canisters, currentFuel)
 		gameState.engineCount = engines
 		gameState.canisterCount = canisters
@@ -143,112 +156,69 @@ local function ConnectToRemoteEvents()
 		MainHUD:UpdateEngineCount(engines)
 		MainHUD:UpdateCanisterCount(canisters)
 		MainHUD:UpdateFuel(currentFuel, gameState.maxFuel)
-		MainHUD:UpdateSpeed(HelicopterData.CalculateSpeed(engines))
 	end)
 
-	-- Update kill count
-	updateKillCountEvent.OnClientEvent:Connect(function(kills)
-		gameState.killCount = kills
-		MainHUD:UpdateKillCount(kills)
-	end)
-
-	-- Update wave
-	updateWaveEvent.OnClientEvent:Connect(function(waveNumber)
-		gameState.currentWave = waveNumber
-		gameState.wavesSurvived = waveNumber - 1
-		MainHUD:UpdateWave(waveNumber)
-	end)
-
-	-- Update phase
-	updatePhaseEvent.OnClientEvent:Connect(function(phase, duration)
-		gameState.currentPhase = phase
-		phaseStartTime = tick()
-		phaseEndTime = phaseStartTime + (duration or 60)
-		MainHUD:UpdatePhase(phase)
+	-- Update BrainBucks
+	local updateBrainBucksEvent = GetOrCreateRemoteEvent("UpdateBrainBucks")
+	updateBrainBucksEvent.OnClientEvent:Connect(function(brainBucks)
+		gameState.brainBucks = brainBucks
+		MainHUD:UpdateBrainBucks(brainBucks)
 	end)
 
 	-- Update leaderboard
+	local updateLeaderboardEvent = GetOrCreateRemoteEvent("UpdateLeaderboard")
 	updateLeaderboardEvent.OnClientEvent:Connect(function(leaderboardData)
 		playerStats = leaderboardData
 		Leaderboard:Refresh(leaderboardData)
 	end)
 
-	-- Player died
-	playerDiedEvent.OnClientEvent:Connect(function(brainrotName, brainrotTier, tierColor)
+	-- Player death
+	local playerDiedEvent = GetOrCreateRemoteEvent("PlayerDied")
+	playerDiedEvent.OnClientEvent:Connect(function(respawnSeconds)
 		gameState.isDead = true
 		local respawnCallback = function()
 			gameState.isDead = false
-			-- Server will handle respawn via dedicated respawn event
 		end
-
-		DeathScreen:Show(
-			{name = brainrotName, tier = brainrotTier, tierColor = tierColor},
-			gameState.wavesSurvived,
-			gameState.killCount,
-			respawnCallback
-		)
+		DeathScreen:Show(respawnCallback, respawnSeconds or 5)
 	end)
 
-	-- Pickup notification
-	pickupNotificationEvent.OnClientEvent:Connect(function(itemType, quantity)
-		MainHUD:ShowPickupNotification(itemType, quantity or 1)
+	-- Collection updated
+	local collectionUpdatedEvent = GetOrCreateRemoteEvent("CollectionUpdated")
+	collectionUpdatedEvent.OnClientEvent:Connect(function(tierNumber, isCollected)
+		CollectionGUI:SetTierCollected(tierNumber, isCollected)
 	end)
-end
 
---[[
-	Updates phase timer every frame
-]]
-local function SetupPhaseTimerUpdate()
-	print("[HUDClient] Setting up phase timer updates...")
-
-	RunService.RenderStepped:Connect(function()
-		if gameState.currentPhase and phaseEndTime and tick() < phaseEndTime then
-			local timeRemaining = phaseEndTime - tick()
-			if timeRemaining > 0 then
-				MainHUD:UpdatePhaseTimer(timeRemaining)
-			end
-		end
-	end)
-end
-
---[[
-	Requests initial game state from the server
-]]
-local function RequestInitialState()
-	print("[HUDClient] Requesting initial game state...")
-
-	-- This would be called by server during player join
-	-- For now, we set reasonable defaults
-	MainHUD:UpdateFuel(gameState.currentFuel, gameState.maxFuel)
-	MainHUD:UpdateSpeed(gameState.currentSpeed)
-	MainHUD:UpdateWave(gameState.currentWave)
-	MainHUD:UpdatePhase(gameState.currentPhase)
-	MainHUD:UpdateKillCount(gameState.killCount)
-	MainHUD:UpdateEngineCount(gameState.engineCount)
-	MainHUD:UpdateCanisterCount(gameState.canisterCount)
+	-- Music volume change
+	MusicSettings.OnVolumeChanged = function(volume)
+		local musicVolumeEvent = GetOrCreateRemoteEvent("MusicVolumeChanged")
+		musicVolumeEvent:FireServer(volume)
+	end
 end
 
 --[[
 	Main initialization sequence
 ]]
 local function Initialize()
-	print("[HUDClient] Starting HUD initialization...")
+	print("[HUDClient] Starting HUD client initialization...")
 
 	-- Wait a frame to ensure PlayerGui is ready
 	task.wait(0.1)
 
-	-- Initialize modules
+	-- Initialize all HUD modules
 	InitializeHUD()
 
-	-- Set up event handlers
-	ConnectToRemoteEvents()
+	-- Set up input handlers and event connections
 	SetupInputHandlers()
-	SetupPhaseTimerUpdate()
+	ConnectToRemoteEvents()
 
-	-- Request initial state
-	RequestInitialState()
+	-- Set initial HUD values
+	MainHUD:UpdateFuel(gameState.currentFuel, gameState.maxFuel)
+	MainHUD:UpdateWave(gameState.currentWave)
+	MainHUD:UpdateEngineCount(gameState.engineCount)
+	MainHUD:UpdateCanisterCount(gameState.canisterCount)
+	MainHUD:UpdateBrainBucks(gameState.brainBucks)
 
-	print("[HUDClient] HUD fully initialized and ready!")
+	print("[HUDClient] HUD client fully initialized and ready!")
 end
 
 -- Start the system

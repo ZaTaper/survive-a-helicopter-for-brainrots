@@ -19,6 +19,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"Mid",
 		"Gyatt",
 		"Rizz Goblin",
+		"L Taker",
+		"Cope Bottle",
+		"Ratio Hopeful",
+		"Fax Machine",
+		"Meme Rookie",
 	},
 	Uncommon = {
 		"Alpha Chad",
@@ -31,6 +36,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"Periodt Enforcer",
 		"Delulu Entity",
 		"Vibe Check",
+		"Mandem Special",
+		"Sigma Energy",
+		"Rizz Apprentice",
+		"Slaying Novice",
+		"Cringe Detector",
 	},
 	Rare = {
 		"Meme Lord Ancient",
@@ -43,6 +53,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"Vibes Eater",
 		"Cringe Guardian",
 		"Based AF Spirit",
+		"Mogging Specialist",
+		"Bussin' Collector",
+		"Gyatt Summoner",
+		"Sigma Enforcer",
+		"Skibidi Scholar",
 	},
 	Epic = {
 		"Skibidi Emperor",
@@ -55,6 +70,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"Bussin' Celestial",
 		"Mogged Beyond Repair",
 		"Glow-Up Nightmare",
+		"Vibe Annihilator",
+		"Cope Void",
+		"Cringe Oblivion",
+		"The Ratio King",
+		"Skibidi Awakened",
 	},
 	Mythic = {
 		"SKIBIDI INFINITY",
@@ -67,6 +87,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"MOGGING EVERYTHING",
 		"THE UNDEFEATABLE VIBE",
 		"BASED REALITY WARPER",
+		"MEME APOCALYPSE",
+		"VIBE SINGULARITY",
+		"COPE DESTROYED",
+		"RATIO DOMINATOR",
+		"THE SKIBIDI CHOSEN",
 	},
 	Secret = {
 		"Literally Me IRL",
@@ -79,6 +104,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"Cope Infinity",
 		"Slay Eternally",
 		"The Forbidden Gyatt",
+		"Sigma Transcendent",
+		"The Bussin' Prophet",
+		"No Cap Absolute",
+		"Mogging Divinity",
+		"Secret Skibidi",
 	},
 	Celestial = {
 		"⭐ COSMIC SKIBIDI ⭐",
@@ -91,6 +121,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"🌌 MOGGED UNIVERSE 🌌",
 		"💫 GYATT ABSOLUTE 💫",
 		"⭐ THE ULTIMATE NO CAP ⭐",
+		"🌠 COSMIC VIBE WARPER 🌠",
+		"🌙 MOONLIT SIGMA BEAST 🌙",
+		"✨ ETHEREAL COPE BREAKER ✨",
+		"💫 ASTRAL SKIBIDI 💫",
+		"🌌 VOID SLAY ENTITY 🌌",
 	},
 	OP = {
 		"【SKIBIDI ABSOLUTE】",
@@ -103,6 +138,11 @@ BrainrotData.BRAINROT_NAMES = {
 		"【SLAY APOCALYPSE】",
 		"【THE FINAL RATIO】",
 		"【UNFATHOMABLE VIBE】",
+		"【NO CAP SUPREMACY】",
+		"【GYATT TRANSCENDENCE】",
+		"【VOID BREAKER】",
+		"【THE FORBIDDEN SKIBIDI】",
+		"【EXISTENCE ITSELF】",
 	},
 }
 
@@ -227,6 +267,40 @@ function BrainrotData.CreateBrainrot(tier, model, uniqueId)
 		lastChaseTime = 0,
 		createdAt = tick(),
 	}
+end
+
+--- Collection chances by tier (percentage 0-100)
+--- Tiers indexed 1-8 (Common through OP)
+BrainrotData.COLLECTION_CHANCES = {
+	80,  -- 1: Common
+	60,  -- 2: Uncommon
+	40,  -- 3: Rare
+	25,  -- 4: Epic
+	15,  -- 5: Mythic
+	8,   -- 6: Secret
+	4,   -- 7: Celestial
+	2,   -- 8: OP
+}
+
+--- Get collection chance for a tier (percentage 0-100)
+--- @param tierIndex number - Index of tier (1-8)
+--- @return number - Collection chance as percentage (0-100)
+function BrainrotData.GetCollectionChance(tierIndex)
+	if tierIndex < 1 or tierIndex > #GameConfig.BrainrotTiers then
+		return 0
+	end
+	return BrainrotData.COLLECTION_CHANCES[tierIndex] or 0
+end
+
+--- Get money reward for a tier
+--- @param tierIndex number - Index of tier (1-8)
+--- @return number - Money reward amount
+function BrainrotData.GetMoneyReward(tierIndex)
+	if tierIndex < 1 or tierIndex > #GameConfig.BrainrotTiers then
+		return 0
+	end
+	local tier = GameConfig.BrainrotTiers[tierIndex]
+	return tier.money or 0
 end
 
 return BrainrotData
