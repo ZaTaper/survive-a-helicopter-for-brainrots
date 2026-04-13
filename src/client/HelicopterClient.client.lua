@@ -1,7 +1,7 @@
 -- HelicopterClient.client.lua
 -- Client-side helicopter controls and interactions
 -- Handles E to build, Space to fly, WASD to move while flying
--- Handles G to grab/drop brainrots
+-- Handles E (hold) to grab/drop brainrots
 -- Shows HUD with fuel, speed, engines, carry status
 
 local Players = game:GetService("Players")
@@ -112,7 +112,7 @@ local function CreateUI()
 	controlsText.Font = Enum.Font.Gotham
 	controlsText.TextWrapped = true
 	controlsText.BorderSizePixel = 1
-	controlsText.Text = "E: Build | R: Engine | F: Fuel\nSpace: Fly/Land | WASD: Move\nG: Grab/Drop Brainrot | B: Shop | C: Collection"
+	controlsText.Text = "R: Engine | F: Fuel\nSpace: Fly/Land | WASD: Move\nHold E: Grab/Drop Brainrot | B: Shop | C: Collection"
 	controlsText.Parent = screenGui
 
 	-- Carry indicator (appears when carrying)
@@ -135,6 +135,34 @@ local function CreateUI()
 	carryText.Font = Enum.Font.GothamBold
 	carryText.Parent = carryIndicator
 
+	-- Hold progress indicator
+	local holdProgressFrame = Instance.new("Frame")
+	holdProgressFrame.Name = "HoldProgressFrame"
+	holdProgressFrame.Size = UDim2.new(0, 200, 0, 40)
+	holdProgressFrame.Position = UDim2.new(0.5, -100, 0.5, -20)
+	holdProgressFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	holdProgressFrame.BorderSizePixel = 2
+	holdProgressFrame.Visible = false
+	holdProgressFrame.Parent = screenGui
+
+	-- Hold progress bar fill
+	local holdProgressBar = Instance.new("Frame")
+	holdProgressBar.Name = "HoldProgressBar"
+	holdProgressBar.Size = UDim2.new(0, 0, 1, 0)
+	holdProgressBar.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+	holdProgressBar.BorderSizePixel = 0
+	holdProgressBar.Parent = holdProgressFrame
+
+	-- Hold progress label
+	local holdProgressLabel = Instance.new("TextLabel")
+	holdProgressLabel.Name = "HoldProgressLabel"
+	holdProgressLabel.Size = UDim2.new(1, 0, 1, 0)
+	holdProgressLabel.BackgroundTransparency = 1
+	holdProgressLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	holdProgressLabel.TextScaled = true
+	holdProgressLabel.Font = Enum.Font.GothamBold
+	holdProgressLabel.Parent = holdProgressFrame
+
 	return {
 		screenGui = screenGui,
 		fuelBar = fuelBar,
@@ -142,6 +170,9 @@ local function CreateUI()
 		statusText = statusText,
 		carryIndicator = carryIndicator,
 		carryText = carryText,
+		holdProgressFrame = holdProgressFrame,
+		holdProgressBar = holdProgressBar,
+		holdProgressLabel = holdProgressLabel,
 	}
 end
 
@@ -200,7 +231,7 @@ local function UpdateUI()
 			helicopterState.carryingBrainrot.tierName
 		)
 	elseif helicopterState.isActive then
-		statusMessage = statusMessage .. "\nFly near brainrot + G to grab"
+		statusMessage = statusMessage .. "\nFly near brainrot + Hold E to grab"
 	end
 
 	UI.statusText.Text = statusMessage
@@ -248,19 +279,51 @@ local function DeactivateHelicopter()
 	helicopterState.isActive = false
 end
 
--- Grab or drop brainrot (G key)
-local function GrabOrDropBrainrot()
+-- Hold E to grab or drop brainrot
+local eKeyHoldStartTime = nil
+local eKeyHoldActive = false
+local holdRequiredTime = 1.5 -- 1.5 seconds to complete grab/drop
+
+local function UpdateEKeyHold(elapsedTime)
+	if not eKeyHoldActive or not helicopterState.isActive then
+		return
+	end
+
+	local progress = math.min(1, elapsedTime / holdRequiredTime)
+	UI.holdProgressBar.Size = UDim2.new(progress, 0, 1, 0)
+	UI.holdProgressLabel.Text = string.format("%.0f%%", progress * 100)
+
+	if progress >= 1 then
+		-- Hold time completed
+		eKeyHoldActive = false
+		UI.holdProgressFrame.Visible = false
+
+		if helicopterState.carryingBrainrot then
+			-- Currently carrying, so drop
+			DropBrainrotEvent:FireServer()
+		else
+			-- Not carrying, so try to grab
+			GrabBrainrotEvent:FireServer()
+		end
+	end
+end
+
+local function StartEKeyHold()
 	if not helicopterState.isActive then
 		return
 	end
 
-	if helicopterState.carryingBrainrot then
-		-- Currently carrying, so drop
-		DropBrainrotEvent:FireServer()
-	else
-		-- Not carrying, so try to grab
-		GrabBrainrotEvent:FireServer()
-	end
+	eKeyHoldStartTime = tick()
+	eKeyHoldActive = true
+	UI.holdProgressFrame.Visible = true
+	UI.holdProgressBar.Size = UDim2.new(0, 0, 1, 0)
+	UI.holdProgressLabel.Text = "0%"
+end
+
+local function CancelEKeyHold()
+	eKeyHoldActive = false
+	eKeyHoldStartTime = nil
+	UI.holdProgressFrame.Visible = false
 end
 
 -- Sync helicopter stats from server (MUST be defined before being called)
@@ -325,7 +388,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	elseif input.KeyCode == Enum.KeyCode.D then
 		movementInput.right = true
 	elseif input.KeyCode == Enum.KeyCode.E then
-		BuildHelicopter()
+		-- E key starts the hold for grab/drop
+		StartEKeyHold()
 	elseif input.KeyCode == Enum.KeyCode.R then
 		AddEngine()
 	elseif input.KeyCode == Enum.KeyCode.F then
@@ -336,8 +400,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		else
 			DeactivateHelicopter()
 		end
-	elseif input.KeyCode == Enum.KeyCode.G then
-		GrabOrDropBrainrot()
 	end
 end)
 
@@ -350,6 +412,9 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 		movementInput.left = false
 	elseif input.KeyCode == Enum.KeyCode.D then
 		movementInput.right = false
+	elseif input.KeyCode == Enum.KeyCode.E then
+		-- E key released, cancel the hold if not yet complete
+		CancelEKeyHold()
 	end
 end)
 
@@ -423,6 +488,12 @@ RunService.RenderStepped:Connect(function()
 	if helicopterState.isActive then
 		UpdateMovement()
 		UpdateUI()
+	end
+
+	-- Update E key hold progress
+	if eKeyHoldActive and eKeyHoldStartTime then
+		local elapsedTime = tick() - eKeyHoldStartTime
+		UpdateEKeyHold(elapsedTime)
 	end
 end)
 

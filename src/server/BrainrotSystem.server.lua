@@ -23,33 +23,41 @@ local activeBrainrots = {}
 -- Unique ID counter
 local brainrotIdCounter = 0
 
--- Map configuration (matching MapGenerator)
+-- Map configuration (matching MapGenerator pathway layout)
 local MAP_CENTER = Vector3.new(0, 200, 0)
-local BRAINROT_ISLAND_RADIUS_MIN = 300
-local BRAINROT_ISLAND_RADIUS_MAX = 400
+local PATHWAY_LENGTH = 200             -- Pathway goes from Z=-100 to Z=+100
+
+-- Open air brainrot zone: beyond the pathway end, floating in the sky
+local BRAINROT_ZONE_START_Z = 120      -- Start spawning past the pathway end
+local BRAINROT_ZONE_END_Z = 500        -- How far out brainrots go
+local BRAINROT_ZONE_WIDTH = 300        -- How wide the brainrot zone is (X spread)
+local BRAINROT_ZONE_HEIGHT_MIN = 180   -- Min Y for floating brainrots
+local BRAINROT_ZONE_HEIGHT_MAX = 240   -- Max Y for floating brainrots
 
 -- Settings
 local BOB_HEIGHT = 1.5                 -- Max distance up/down from center (studs)
-local SPAWN_HEIGHT_MIN = 8             -- Min distance above island surface
-local SPAWN_HEIGHT_MAX = 15            -- Max distance above island surface
-local SPAWN_RADIUS = 25                -- Horizontal scatter radius (studs)
-local BRAINROT_COUNT_PER_ISLAND = 4    -- Number to spawn on each island (3-5 per spec)
+local BRAINROTS_PER_TIER = 5           -- Number of each tier to spawn
 local RESPAWN_DELAY_MIN = 30           -- Min seconds until respawn
 local RESPAWN_DELAY_MAX = 60           -- Max seconds until respawn
 
---- Calculate fallback island position if MapGenerator islands don't exist
+--- Calculate a random spawn position in the open air brainrot zone
+--- Higher tiers spawn further out
 --- @param tierIndex number - 1-8
 --- @return Vector3
-local function GetIslandPositionFallback(tierIndex)
-	local angle = (tierIndex - 1) / 8 * math.pi * 2
-	local radiusOffset = (tierIndex - 1) * ((BRAINROT_ISLAND_RADIUS_MAX - BRAINROT_ISLAND_RADIUS_MIN) / 7)
-	local radius = BRAINROT_ISLAND_RADIUS_MIN + radiusOffset
-	local height = MAP_CENTER.Y + (tierIndex - 1) * 10
+local function GetRandomBrainrotPosition(tierIndex)
+	-- Higher tiers spawn further out from the pathway
+	local tierFraction = (tierIndex - 1) / 7 -- 0 to 1
+	local minZ = BRAINROT_ZONE_START_Z + tierFraction * 100 -- Higher tiers start further
+	local maxZ = minZ + 80 -- Each tier has an 80-stud deep zone
 
-	local x = MAP_CENTER.X + math.cos(angle) * radius
-	local z = MAP_CENTER.Z + math.sin(angle) * radius
+	local z = minZ + math.random() * (maxZ - minZ)
+	local x = (math.random() - 0.5) * BRAINROT_ZONE_WIDTH
+	local y = BRAINROT_ZONE_HEIGHT_MIN + math.random() * (BRAINROT_ZONE_HEIGHT_MAX - BRAINROT_ZONE_HEIGHT_MIN)
 
-	return Vector3.new(x, height, z)
+	-- Higher tiers float a bit higher
+	y = y + tierIndex * 3
+
+	return Vector3.new(x, y, z)
 end
 
 --- Get random respawn delay between min/max
@@ -79,79 +87,27 @@ local function StartBobAnimation(brainrotData)
 end
 
 --- Initialize the brainrot system
---- Spawns brainrots on all 8 tier-themed islands
+--- Spawns brainrots floating in open air beyond the pathway
 function BrainrotSystem.Initialize()
-	print("[BrainrotSystem] Initializing static floating collectible system...")
+	print("[BrainrotSystem] Initializing floating brainrot collectible system...")
 
-	-- Spawn on all 8 islands
+	-- Spawn brainrots for all 8 tiers in the open air
 	for tierIndex = 1, 8 do
 		local tierConfig = GameConfig.BrainrotTiers[tierIndex]
 		if tierConfig then
-			-- Try to find island from MapGenerator
-			local islandPosition = nil
-			local gameMap = workspace:FindFirstChild("GameMap")
-			if gameMap then
-				local structures = gameMap:FindFirstChild("Structures")
-				if structures then
-					local brainrotIslands = structures:FindFirstChild("BrainrotIslands")
-					if brainrotIslands then
-						local islandModel = brainrotIslands:FindFirstChild("BrainrotIsland_" .. tierIndex)
-						if islandModel then
-							-- Try GetBoundingBox for Models, fall back to finding a BasePart
-							local ok, result = pcall(function()
-								local cf, size = islandModel:GetBoundingBox()
-								return cf.Position
-							end)
-							if ok and result then
-								islandPosition = result
-							else
-								-- Find first BasePart in island
-								for _, part in ipairs(islandModel:GetDescendants()) do
-									if part:IsA("BasePart") then
-										islandPosition = part.Position
-										break
-									end
-								end
-							end
-							if islandPosition then
-								print("[BrainrotSystem] Found BrainrotIsland_" .. tierIndex .. " at " .. tostring(islandPosition))
-							end
-						end
-					end
-				end
+			for i = 1, BRAINROTS_PER_TIER do
+				BrainrotSystem.SpawnSingleBrainrot(tierIndex)
 			end
-
-			-- Fallback to calculated position
-			if not islandPosition then
-				islandPosition = GetIslandPositionFallback(tierIndex)
-				print("[BrainrotSystem] Using fallback position for tier " .. tierIndex .. " at " .. tostring(islandPosition))
-			end
-
-			BrainrotSystem.SpawnBrainrotsOnIsland(islandPosition, tierIndex)
+			print("[BrainrotSystem] Spawned " .. BRAINROTS_PER_TIER .. " " .. tierConfig.name .. " brainrots in the sky")
 		end
 	end
 
-	print("[BrainrotSystem] Initialized with " .. BrainrotSystem.GetActiveBrainrotCount() .. " total brainrots")
+	print("[BrainrotSystem] Initialized with " .. BrainrotSystem.GetActiveBrainrotCount() .. " total brainrots floating in the air")
 end
 
---- Spawn 3-5 brainrots on a specific island
---- @param islandPosition Vector3 - Island center
+--- Spawn a single brainrot floating in the open air
 --- @param tierIndex number - 1-8
-function BrainrotSystem.SpawnBrainrotsOnIsland(islandPosition, tierIndex)
-	local tierConfig = GameConfig.BrainrotTiers[tierIndex]
-	if not tierConfig then return end
-
-	local count = BRAINROT_COUNT_PER_ISLAND
-
-	for i = 1, count do
-		BrainrotSystem.SpawnSingleBrainrot(tierIndex, islandPosition)
-	end
-end
-
---- Spawn a single brainrot at a specific tier location
---- @param tierIndex number - 1-8
---- @param islandPosition Vector3 - Island center
-function BrainrotSystem.SpawnSingleBrainrot(tierIndex, islandPosition)
+function BrainrotSystem.SpawnSingleBrainrot(tierIndex)
 	local tierConfig = GameConfig.BrainrotTiers[tierIndex]
 	if not tierConfig then return end
 
@@ -159,14 +115,8 @@ function BrainrotSystem.SpawnSingleBrainrot(tierIndex, islandPosition)
 	brainrotIdCounter = brainrotIdCounter + 1
 	local uniqueId = "brainrot_" .. brainrotIdCounter
 
-	-- Calculate spawn position: scattered above island
-	local randomAngle = math.random() * math.pi * 2
-	local randomDist = math.random() * SPAWN_RADIUS
-	local spawnHeight = SPAWN_HEIGHT_MIN + math.random() * (SPAWN_HEIGHT_MAX - SPAWN_HEIGHT_MIN)
-
-	local offsetX = math.cos(randomAngle) * randomDist
-	local offsetZ = math.sin(randomAngle) * randomDist
-	local spawnPos = islandPosition + Vector3.new(offsetX, spawnHeight, offsetZ)
+	-- Get random position in the open air zone
+	local spawnPos = GetRandomBrainrotPosition(tierIndex)
 
 	-- Create model via BrainrotModel
 	local brainrotModel = BrainrotModel.CreateBrainrotModel(tierConfig, spawnPos)
@@ -310,8 +260,12 @@ function BrainrotSystem.RespawnBrainrot(uniqueId)
 			end)
 		end
 
+		-- New random position (don't always respawn in same spot)
+		local newPos = GetRandomBrainrotPosition(brainrotData.tierIndex)
+		brainrotData.originalPosition = newPos
+
 		-- Create new model
-		local newModel = BrainrotModel.CreateBrainrotModel(tierConfig, brainrotData.originalPosition)
+		local newModel = BrainrotModel.CreateBrainrotModel(tierConfig, newPos)
 		newModel.Name = uniqueId
 
 		-- Anchor all parts
@@ -383,8 +337,7 @@ task.spawn(function()
 	-- Wait for GameMap to exist (MapGenerator creates it)
 	local gameMap = workspace:WaitForChild("GameMap", 30)
 	if gameMap then
-		gameMap:WaitForChild("Structures", 15)
-		task.wait(1) -- Extra delay for islands to fully generate
+		task.wait(1) -- Brief delay for map to fully generate
 	end
 	BrainrotSystem.Initialize()
 end)
