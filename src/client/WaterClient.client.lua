@@ -131,10 +131,13 @@ local function ApplyScreenShake()
 	camera.CFrame = originalCFrame
 end
 
--- Create notification UI
-local function CreateNotificationUI()
-	if notificationFrame and notificationFrame.Parent then
-		return notificationFrame
+-- Show death notification that auto-dismisses after 3 seconds
+local currentNotificationGui = nil
+
+local function ShowDeathNotification()
+	-- Destroy any existing notification first
+	if currentNotificationGui and currentNotificationGui.Parent then
+		currentNotificationGui:Destroy()
 	end
 
 	local screenGui = Instance.new("ScreenGui")
@@ -142,25 +145,26 @@ local function CreateNotificationUI()
 	screenGui.ResetOnSpawn = false
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.Parent = playerGui
+	currentNotificationGui = screenGui
 
-	notificationFrame = Instance.new("Frame")
-	notificationFrame.Name = "Notification"
-	notificationFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-	notificationFrame.BackgroundTransparency = 0.1
-	notificationFrame.BorderSizePixel = 0
-	notificationFrame.Size = UDim2.new(0, 400, 0, 100)
-	notificationFrame.Position = UDim2.new(0.5, -200, 0.5, -50)
-	notificationFrame.ZIndex = 100
-	notificationFrame.Parent = screenGui
+	local frame = Instance.new("Frame")
+	frame.Name = "Notification"
+	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	frame.BackgroundTransparency = 0.1
+	frame.BorderSizePixel = 0
+	frame.Size = UDim2.new(0, 400, 0, 100)
+	frame.Position = UDim2.new(0.5, -200, 0.5, -50)
+	frame.ZIndex = 100
+	frame.Parent = screenGui
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 12)
-	corner.Parent = notificationFrame
+	corner.Parent = frame
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(100, 150, 255)
 	stroke.Thickness = 2
-	stroke.Parent = notificationFrame
+	stroke.Parent = frame
 
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Name = "Text"
@@ -173,7 +177,7 @@ local function CreateNotificationUI()
 	textLabel.Size = UDim2.new(1, -20, 0.5, -10)
 	textLabel.Position = UDim2.new(0, 10, 0, 10)
 	textLabel.TextWrapped = true
-	textLabel.Parent = notificationFrame
+	textLabel.Parent = frame
 
 	local progressLabel = Instance.new("TextLabel")
 	progressLabel.Name = "Progress"
@@ -186,73 +190,26 @@ local function CreateNotificationUI()
 	progressLabel.Size = UDim2.new(1, -20, 0.5, -10)
 	progressLabel.Position = UDim2.new(0, 10, 0.5, 0)
 	progressLabel.TextWrapped = true
-	progressLabel.Parent = notificationFrame
+	progressLabel.Parent = frame
 
-	notificationFrame.TextLabel = textLabel
-	notificationFrame.ProgressLabel = progressLabel
-
-	-- Auto-dismiss after 3 seconds (respawn time)
+	-- Auto-dismiss: wait 3 seconds then fade out and destroy
 	task.delay(3, function()
-		if notificationFrame and notificationFrame.Parent then
-			local fadeTween = TweenService:Create(
-				notificationFrame,
-				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{BackgroundTransparency = 1}
-			)
-			-- Also fade the text
-			local textFade = TweenService:Create(
-				textLabel,
-				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{TextTransparency = 1}
-			)
-			local progressFade = TweenService:Create(
-				progressLabel,
-				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{TextTransparency = 1}
-			)
-			-- Fade the stroke too
-			local strokeObj = notificationFrame:FindFirstChildOfClass("UIStroke")
-			if strokeObj then
-				TweenService:Create(strokeObj, TweenInfo.new(0.5), {Transparency = 1}):Play()
-			end
+		if screenGui and screenGui.Parent then
+			local fadeTween = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1})
+			TweenService:Create(textLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+			TweenService:Create(progressLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+			TweenService:Create(stroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
 			fadeTween.Completed:Connect(function()
 				if screenGui and screenGui.Parent then
 					screenGui:Destroy()
 				end
-				notificationFrame = nil
+				if currentNotificationGui == screenGui then
+					currentNotificationGui = nil
+				end
 			end)
 			fadeTween:Play()
-			textFade:Play()
-			progressFade:Play()
 		end
 	end)
-
-	return notificationFrame
-end
-
--- Update notification
-local function UpdateNotification(message)
-	local frame = CreateNotificationUI()
-	if frame and frame.Parent then
-		frame.TextLabel.Text = message
-		frame.ProgressLabel.Text = ""
-
-		task.delay(2, function()
-			if frame and frame.Parent then
-				local tween = TweenService:Create(
-					frame,
-					TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-					{BackgroundTransparency = 1}
-				)
-				tween.Completed:Connect(function()
-					if frame and frame.Parent then
-						frame.Parent:Destroy()
-					end
-				end)
-				tween:Play()
-			end
-		end)
-	end
 end
 
 -- Play splash sound
@@ -286,7 +243,10 @@ end)
 -- Handle restart event
 restartEvent.OnClientEvent:Connect(function(message)
 	print("[WaterClient] Restart event: " .. message)
-	UpdateNotification(message)
+	-- Only show notification for the death message, ignore the "Restarted" follow-up
+	if message == "You fell into the void!" then
+		ShowDeathNotification()
+	end
 end)
 
 print("[WaterClient] Initialized")
