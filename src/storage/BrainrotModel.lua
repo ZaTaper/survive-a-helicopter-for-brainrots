@@ -420,20 +420,7 @@ function BrainrotModel.CreateBrainrotModel(tierConfig, startPosition)
 	textLabel.Font = Enum.Font.GothamBold
 	textLabel.Parent = billboardGui
 
-	-- Store all parts in attributes for easy cleanup
-	local partsTable = {}
-	for _, part in ipairs(brainrot:GetDescendants()) do
-		if part:IsA("BasePart") then
-			table.insert(partsTable, part)
-		end
-	end
-	brainrot:SetAttribute("AllParts", partsTable)
-
-	-- Unanchor all parts for physics simulation
-	for _, part in ipairs(partsTable) do
-		part.Anchored = false
-	end
-
+	-- NOTE: All parts stay anchored. BrainrotSystem manages anchoring.
 	return brainrot
 end
 
